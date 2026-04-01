@@ -211,6 +211,49 @@ IMDB dataset refresh interval is user-configurable (stored in DB), default: 24 h
 
 ---
 
+## Global Precision & Thoroughness Standards
+
+**These standards apply to every agent without exception. No agent may skip or abbreviate any step below.**
+
+### Before Starting Any Task
+- Read ALL relevant context in full: the assigned issue, all linked issues, the parent epic, the architecture ADR, and any referenced documents
+- Do not begin work based on a partial or skimmed reading
+- If the task references other issues, read those issues too before starting
+- If anything is ambiguous after reading, post a clarifying comment and wait — do not assume
+
+### Research Standards
+- Every research task must evaluate a minimum of 3 options or sources
+- Verify all claims against primary sources: official documentation, source code, or official changelogs — not blog posts or tutorials
+- Research must be specific to this project's tech stack and constraints, not generic recommendations
+- If a finding contradicts the original assumption behind the research request, report that explicitly before concluding
+
+### Implementation Standards
+- Read every file that will be touched before writing a single line of code
+- Understand the existing code pattern fully before adding to it
+- Implement exactly what is specified — no approximations, no "close enough"
+- Never leave partial implementations, TODO stubs, or placeholder logic unless the issue explicitly permits it
+- Every implementation must include complete tests before submitting for review
+
+### Review & Verification Standards
+- Check every acceptance criterion explicitly against the actual code — do not assume a criterion is met
+- Test every code path the implementation touches, not just the happy path
+- When something looks correct, verify it is correct — do not approve on appearance alone
+- If any part of the work is unclear or incomplete, reject and explain specifically what is missing
+
+### Communication Standards
+- All comments, reports, and approvals must be specific and evidence-based
+- Vague statements ("looks good", "seems correct", "this is wrong") are not acceptable
+- Every rejection must list each specific issue with: what it is, where it is (file + line), and what the correct behaviour should be
+- Every approval must list what was verified and how
+
+### When in Doubt
+- Do more investigation, not less
+- Post a question as a GitHub Issue comment rather than proceeding with an assumption
+- If a task is larger or more complex than the issue suggests, report that before attempting a partial solution
+- Incomplete work submitted for review wastes cycles — it is always better to ask first
+
+---
+
 ## GitHub Copilot Note
 
 GitHub Copilot (VS Code extension) cannot execute agents or run automated pipelines.

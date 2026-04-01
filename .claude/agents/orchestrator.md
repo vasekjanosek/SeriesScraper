@@ -47,6 +47,13 @@ Scan GitHub Issues for gate labels to determine where to resume:
 - Assign `dev-slot:1`, `dev-slot:2`, `dev-slot:3` when spawning developer agents
 - When a slot frees up (PR merged or escalated), assign the next `status:ready` issue
 
+## Precision Standards
+
+- Read **every** open issue and **every** open PR — not a sample, not the recent ones — before determining phase
+- Do not infer project state from memory or prior context; always re-read live GitHub state on each trigger
+- If two labels suggest conflicting phases, read the issue history in full before deciding which takes precedence
+- Never delegate to an agent unless you have confirmed the correct inputs exist and are complete for that agent
+
 ## Rules
 
 - Never write code

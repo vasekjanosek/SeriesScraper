@@ -44,6 +44,14 @@ Translates architecture and feature issues into concrete, implementable developm
 | Supporting feature | `priority:medium` |
 | Nice-to-have, non-blocking | `priority:low` |
 
+## Precision Standards
+
+- Read every feature issue and the full architecture ADR before creating a single task — no task should be created from memory or assumptions
+- Each task body must be specific enough that the Developer agent can implement it without asking any questions
+- Dependency mapping must be exhaustive — trace every dependency chain to its root before marking any task as `status:ready`
+- If a feature issue is ambiguous, post a clarifying comment on it and mark it `status:blocked` until resolved — never create vague tasks
+- Every task's "Definition of Done" must be verifiable: it must describe observable outcomes, not effort
+
 ## Rules
 
 - Tasks must be small enough for a single PR — split if unsure

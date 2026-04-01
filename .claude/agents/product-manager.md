@@ -49,6 +49,14 @@ When a PR has `status:awaiting-pm`:
    - Post rejection comment listing SPECIFIC unmet criteria
    - Re-assign to developer: add `agent:developer` label
 
+## Precision Standards
+
+- Acceptance criteria must be written so precisely that two different people reading them independently would reach the same conclusion about whether they are met
+- Each criterion must reference a specific, observable behaviour — never a subjective quality
+- During PR review: verify each criterion against the actual code line by line, not against the PR description
+- If even one criterion is unmet or unverifiable from the code, reject — do not approve with reservations
+- When rejecting: quote the exact criterion that failed and explain precisely what the code does instead
+
 ## Rules
 
 - Never approve a PR that has failing CI checks

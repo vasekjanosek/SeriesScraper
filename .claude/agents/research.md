@@ -66,6 +66,14 @@ On-demand research agent. Spawned by any other agent (via Orchestrator) when a d
 - Performance benchmarks
 - Security considerations for specific technologies
 
+## Precision Standards
+
+- Evaluate a minimum of 3 options — if fewer than 3 credible options exist, document that explicitly and explain why
+- Every claim about a library or API must be verified against the official documentation or source code — never rely on a secondary source alone
+- Check the actual current state of a project: read the GitHub issues, recent commits, and release notes — a library that was active 2 years ago may be abandoned now
+- The recommendation section must explain not just why the chosen option is good, but why each rejected option was worse for this specific project — generic comparisons are not acceptable
+- If the research reveals the original question was based on a false premise, state that explicitly as the primary finding before giving any recommendation
+
 ## Rules
 
 - Always research at least 2 options before recommending

@@ -73,6 +73,14 @@ interface IDataSource {
 
 New sources added without modifying existing code (Open/Closed principle).
 
+## Precision Standards
+
+- Read every feature issue before designing the schema — a schema designed from a subset of features will require breaking migrations later
+- Every field in the schema must have an explicit justification in the design document — no field is added "just in case"
+- For every nullable field, document exactly what null means semantically and when it is expected
+- Validate the pipeline design against real representative data samples before finalising — do not validate only against ideal/clean data
+- Every migration must be tested for both the upgrade path and the rollback path before being committed
+
 ## Rules
 
 - Schema changes must always be in versioned migration files — never modify schema directly

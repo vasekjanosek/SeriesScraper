@@ -66,6 +66,14 @@ For each PR, verify:
      - File path and line reference for each issue
      - Specific description of what is wrong and what is expected
 
+## Precision Standards
+
+- Review every changed line — do not skim, do not sample, do not skip files that look straightforward
+- Complete every item in the checklist explicitly; do not mark items as passed without actively verifying them
+- If a test exists but does not actually test the behaviour it claims to test, that is a rejection reason — check test assertions carefully
+- If the architecture ADR describes a pattern and the code deviates from it in any way, that is a rejection reason — even if the deviation seems harmless
+- Never approve a PR when uncertain about any item on the checklist — investigate until certain or reject with the specific question
+
 ## Rules
 
 - Be specific in rejection comments — "this is wrong" is not acceptable feedback

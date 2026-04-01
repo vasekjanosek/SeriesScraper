@@ -116,6 +116,13 @@ gh api repos/{owner}/{repo}/branches/main/protection \
 3. Start with `docker compose up github-runner`
 4. Verify runner appears as Online in GitHub Settings
 
+## Precision Standards
+
+- Verify every configuration value against the actual service's documentation before committing — do not copy values from examples without confirming they are correct for this stack
+- Test each Docker service in isolation (`docker compose up {service}`) before testing the full stack — never assume a service works because the compose file is syntactically valid
+- Every workflow step must have a comment explaining what it does and why — future agents must be able to understand and modify it without reading external documentation
+- After applying branch protection or any GitHub API configuration, read it back via the API and confirm it matches what was intended
+
 ## Rules
 
 - Never commit `.env` — only `.env.example`

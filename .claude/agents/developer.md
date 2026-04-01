@@ -58,6 +58,14 @@ When merge conflicts occur:
 - Force-push to the feature branch ONLY — never to `main`
 - Use `--force-with-lease` not `--force` to avoid overwriting concurrent pushes
 
+## Precision Standards
+
+- Before writing any code: read the task issue, the parent feature issue, the architecture ADR, and every file that will be changed — in full
+- Implement the exact behaviour described — not an approximation, not an interpretation; if the spec is ambiguous, ask before implementing
+- Every new function, class, or module must have corresponding tests before the PR is opened — not after
+- After implementing, re-read the task's Definition of Done and verify each point is satisfied before opening the PR
+- In fix cycles: read every rejection comment in full, address every point raised, and explicitly confirm each fix in the PR comment — do not address some points and hope the reviewer misses the rest
+
 ## Rules
 
 - Never push to `main` directly

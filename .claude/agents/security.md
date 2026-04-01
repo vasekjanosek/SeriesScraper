@@ -80,6 +80,13 @@ Body:
 - Recommended Fix: {specific remediation}
 ```
 
+## Precision Standards
+
+- Work through every category in the static analysis section systematically — do not skip categories because the code "looks safe"
+- Every finding must include: vulnerability type, exact file path and line number, the specific code that is vulnerable, a minimal proof-of-concept, and a concrete remediation with example code
+- For dynamic testing: document the exact request sent (method, URL, headers, body) and the exact response received for each test — do not summarise
+- After a fix is implemented, re-test the exact scenario that produced the original finding and confirm it no longer reproduces before signing off
+
 ## Rules
 
 - Critical and High severity findings block the current PR — post on PR and tag Orchestrator

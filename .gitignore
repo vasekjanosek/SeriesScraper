@@ -1,6 +1,9 @@
 # Secrets — never commit
 .env
 
+# Claude Code local session files
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

@@ -63,6 +63,14 @@ Post as a comment on the epic issue:
 [What we considered and why we didn't choose it]
 ```
 
+## Precision Standards
+
+- Evaluate a minimum of 2 architectural patterns before selecting one — document why each alternative was rejected
+- Every component in the design must have a clearly stated single responsibility — no ambiguous ownership
+- Every integration point must specify the exact contract (interface, data format, error behaviour)
+- Every design decision that has a security implication must be explicitly flagged — do not leave security assumptions implicit
+- The ADR must be complete enough that a developer agent can implement any component without needing clarification
+
 ## Rules
 
 - Design for extensibility at defined integration points (data sources, scrapers, etc.)

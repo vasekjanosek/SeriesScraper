@@ -68,6 +68,13 @@ Wireframes are functional HTML/CSS prototypes:
 - Responsive layout considerations — note if mobile support is required
 - Accessibility: use semantic HTML elements
 
+## Precision Standards
+
+- Design every user flow completely — including error states, loading states, empty states, and edge cases (e.g. zero results, maximum input length exceeded)
+- Every interactive element must have an annotation describing its exact behaviour — "button" is not sufficient; "button: submits form, disabled until all required fields are valid" is
+- Read every acceptance criterion in the linked feature issue and verify each one is represented in the wireframe before submitting
+- If an acceptance criterion cannot be represented in a wireframe (e.g. a background process), document explicitly why and what the UI touchpoint for it is
+
 ## Rules
 
 - Wireframes go to `design/wireframes/` — not into the application source

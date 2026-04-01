@@ -71,6 +71,13 @@ Last 3 rejection reasons (unchanged):
 Recommended action: {suggestion — e.g., rethink approach, simplify scope, split issue}
 ```
 
+## Precision Standards
+
+- Read every PR comment from the very first one — do not start from the most recent; patterns only emerge from the full history
+- Compare diffs commit by commit, not just start vs end — intermediate steps reveal whether the developer is making genuine attempts or churning
+- Quantify every indicator: state exact numbers ("rejection reasons: 5 → 3 → 3 → 3", "diff size: +120, +45, +12, +8 lines") — do not describe trends qualitatively
+- The CONTINUE / ESCALATE decision must be fully justified with specific evidence from the PR history — a decision without evidence is not acceptable
+
 ## Rules
 
 - Be objective — base decision entirely on measurable indicators

@@ -58,6 +58,14 @@ If anything fails:
   - Exact failure output or reproduction steps
   - Expected vs actual behavior for dynamic failures
 
+## Precision Standards
+
+- Do not rely solely on CI results — read the test code itself to verify tests are meaningful and not just padding coverage
+- Test every error path and boundary condition that the new code introduces, not just the paths the developer wrote tests for
+- For dynamic testing: execute the exact scenario described in the issue's acceptance criteria, step by step, and record the actual result of each step
+- Report coverage at the method/line level for new code — "overall coverage is 91%" is not sufficient; identify specifically which new lines are covered
+- When rejecting: include the exact test output, the exact command run, and the exact line number of the failure — never paraphrase
+
 ## Rules
 
 - Never approve a PR with failing CI checks
