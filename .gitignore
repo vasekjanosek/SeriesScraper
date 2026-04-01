@@ -1,0 +1,48 @@
+# Secrets — never commit
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# .NET build output
+bin/
+obj/
+out/
+
+# .NET publish output
+publish/
+
+# NuGet packages (restored by dotnet restore)
+*.nupkg
+*.snupkg
+.nuget/
+
+# Test results and coverage
+coverage/
+TestResults/
+*.trx
+*.opencover.xml
+*.cobertura.xml
+
+# Rider / VS
+*.user
+*.suo
+*.userprefs
+.vs/
+_ReSharper*/
+*.DotSettings.user
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Design wireframes are committed, but exclude generated/temp files
+design/wireframes/**/*.tmp

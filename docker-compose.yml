@@ -1,0 +1,77 @@
+services:
+
+  # ─── SeriesScraper Application ────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENV:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
+    restart: unless-stopped
+    networks:
+      - seriescraper-network
+
+  # ─── PostgreSQL Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Exposed for local tooling (pgAdmin, DBeaver) — remove in production
+      - "${DB_PORT_EXTERNAL:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - seriescraper-network
+
+  # ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────
+  # Registers with GitHub and runs CI workflows locally.
+  # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
+  # Tokens expire after 1 hour — re-generate if runner fails to register.
+  github-runner:
+    image: myoung34/github-runner:latest
+    environment:
+      REPO_URL: ${GITHUB_REPO_URL}
+      RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
+      RUNNER_NAME: ${RUNNER_NAME:-seriescraper-runner}
+      RUNNER_WORKDIR: /tmp/runner/work
+      RUNNER_SCOPE: repo
+      LABELS: self-hosted
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner_work:/tmp/runner/work
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - seriescraper-network
+
+# ─── Volumes ────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  runner_work:
+    driver: local
+
+# ─── Networks ───────────────────────────────────────────────────────────────
+networks:
+  seriescraper-network:
+    driver: bridge
