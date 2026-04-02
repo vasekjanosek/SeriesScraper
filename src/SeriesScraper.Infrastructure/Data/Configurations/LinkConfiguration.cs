@@ -19,6 +19,10 @@ public class LinkConfiguration : IEntityTypeConfiguration<Link>
             .IsRequired()
             .HasMaxLength(2000);
         
+        entity.Property(e => e.PostUrl)
+            .IsRequired()
+            .HasMaxLength(2000);
+        
         entity.Property(e => e.CreatedAt)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -35,6 +39,9 @@ public class LinkConfiguration : IEntityTypeConfiguration<Link>
             .WithMany(r => r.Links)
             .HasForeignKey(e => e.RunId)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        // Index for accumulate-with-flag queries per AC#7
+        entity.HasIndex(e => new { e.RunId, e.PostUrl, e.IsCurrent });
         
         // NOTE: Partial index IX_Links_IsCurrentPartial created via raw SQL in migration Up() per AC#1
         // CREATE INDEX IX_Links_IsCurrentPartial ON links (link_id) WHERE is_current = true;

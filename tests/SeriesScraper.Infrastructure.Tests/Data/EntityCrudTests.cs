@@ -53,6 +53,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://download.example.com/file.zip",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -87,6 +88,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/dl",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -121,6 +123,7 @@ public class EntityCrudTests
         var movieLink = new Link
         {
             Url = "https://example.com/movie.mkv",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -130,6 +133,7 @@ public class EntityCrudTests
         var seriesLink = new Link
         {
             Url = "https://example.com/show-s03e07.mkv",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             ParsedSeason = 3,
@@ -170,6 +174,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/file.zip",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             IsCurrent = true,
@@ -206,6 +211,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/delete-me",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -240,6 +246,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/nav-test",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -273,6 +280,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/run-nav",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
@@ -500,8 +508,8 @@ public class EntityCrudTests
         context.SaveChanges();
 
         var linkType = context.LinkTypes.First();
-        context.Links.Add(new Link { Url = "https://example.com/a", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
-        context.Links.Add(new Link { Url = "https://example.com/b", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
+        context.Links.Add(new Link { Url = "https://example.com/a", PostUrl = "https://forum.example.com/post/1", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
+        context.Links.Add(new Link { Url = "https://example.com/b", PostUrl = "https://forum.example.com/post/1", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
         context.SaveChanges();
 
         var retrieved = context.ScrapeRuns.Include(r => r.Links).First(r => r.RunId == run.RunId);
@@ -938,8 +946,8 @@ public class EntityCrudTests
         context.SaveChanges();
 
         var linkType = context.LinkTypes.First();
-        context.Links.Add(new Link { Url = "https://example.com/lt-nav-1", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
-        context.Links.Add(new Link { Url = "https://example.com/lt-nav-2", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
+        context.Links.Add(new Link { Url = "https://example.com/lt-nav-1", PostUrl = "https://forum.example.com/post/1", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
+        context.Links.Add(new Link { Url = "https://example.com/lt-nav-2", PostUrl = "https://forum.example.com/post/1", LinkTypeId = linkType.LinkTypeId, RunId = run.RunId, CreatedAt = DateTime.UtcNow });
         context.SaveChanges();
 
         var retrieved = context.LinkTypes.Include(lt => lt.Links).First(lt => lt.LinkTypeId == linkType.LinkTypeId);
@@ -978,6 +986,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = 1,
             RunId = 1,
             IsCurrent = false,
@@ -1007,6 +1016,7 @@ public class EntityCrudTests
         var link = new Link
         {
             Url = "https://example.com/id-test",
+            PostUrl = "https://forum.example.com/post/1",
             LinkTypeId = linkType.LinkTypeId,
             RunId = run.RunId,
             CreatedAt = DateTime.UtcNow
