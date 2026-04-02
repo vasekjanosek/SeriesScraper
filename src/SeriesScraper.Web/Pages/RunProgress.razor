@@ -1,0 +1,169 @@
+@page "/runs"
+@using SeriesScraper.Domain.Enums
+@using SeriesScraper.Domain.Interfaces
+@using SeriesScraper.Domain.ValueObjects
+@implements IDisposable
+@inject IRunProgressService RunProgressService
+
+<PageTitle>Run Progress</PageTitle>
+
+<h3>Scrape Run Progress</h3>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_activeRuns is null || _activeRuns.Count == 0)
+{
+    <div class="alert alert-info">No active scrape runs.</div>
+}
+else
+{
+    @foreach (var run in _activeRuns)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <strong>Run #@run.RunId</strong> — @run.ForumName
+                    <span class="badge @GetStatusBadgeClass(run.Status) ms-2">@run.Status</span>
+                </span>
+                <small class="text-muted">Started: @run.StartedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</small>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-md-6">
+                        <div class="progress" style="height: 24px;">
+                            @{
+                                var percent = run.TotalItems > 0
+                                    ? (int)Math.Round(100.0 * run.ProcessedItems / run.TotalItems)
+                                    : 0;
+                            }
+                            <div class="progress-bar @GetProgressBarClass(run.Status)"
+                                 role="progressbar"
+                                 style="width: @(percent)%"
+                                 aria-valuenow="@run.ProcessedItems"
+                                 aria-valuemin="0"
+                                 aria-valuemax="@run.TotalItems">
+                                @run.ProcessedItems / @run.TotalItems
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="badge bg-success me-1">Done: @run.CompletedItems</span>
+                        <span class="badge bg-danger me-1">Failed: @run.FailedItems</span>
+                        <span class="badge bg-secondary me-1">Pending: @run.PendingItems</span>
+                        @if (run.CurrentItem is not null)
+                        {
+                            <br />
+                            <small class="text-muted mt-1">Processing: @TruncateUrl(run.CurrentItem)</small>
+                        }
+                    </div>
+                </div>
+
+                @if (run.Items.Count > 0)
+                {
+                    <details>
+                        <summary class="mb-2">Items (@run.Items.Count)</summary>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Post URL</th>
+                                        <th>Status</th>
+                                        <th>Processed At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in run.Items)
+                                    {
+                                        <tr>
+                                            <td>@item.RunItemId</td>
+                                            <td>
+                                                <span title="@item.PostUrl">@TruncateUrl(item.PostUrl)</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetItemStatusBadgeClass(item.Status)">
+                                                    @item.Status
+                                                </span>
+                                            </td>
+                                            <td>@(item.ProcessedAt?.ToString("HH:mm:ss") ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<RunProgressDto>? _activeRuns;
+    private bool _loading = true;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        _timer = new Timer(async _ => await RefreshAsync(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _activeRuns = await RunProgressService.GetActiveRunsAsync();
+        _loading = false;
+    }
+
+    private async Task RefreshAsync()
+    {
+        _activeRuns = await RunProgressService.GetActiveRunsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetStatusBadgeClass(ScrapeRunStatus status) => status switch
+    {
+        ScrapeRunStatus.Pending => "bg-secondary",
+        ScrapeRunStatus.Running => "bg-primary",
+        ScrapeRunStatus.Complete => "bg-success",
+        ScrapeRunStatus.Failed => "bg-danger",
+        ScrapeRunStatus.Partial => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string GetProgressBarClass(ScrapeRunStatus status) => status switch
+    {
+        ScrapeRunStatus.Running => "bg-primary progress-bar-striped progress-bar-animated",
+        ScrapeRunStatus.Complete => "bg-success",
+        ScrapeRunStatus.Failed => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string GetItemStatusBadgeClass(ScrapeRunItemStatus status) => status switch
+    {
+        ScrapeRunItemStatus.Pending => "bg-secondary",
+        ScrapeRunItemStatus.Processing => "bg-primary",
+        ScrapeRunItemStatus.Done => "bg-success",
+        ScrapeRunItemStatus.Failed => "bg-danger",
+        ScrapeRunItemStatus.Skipped => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string TruncateUrl(string url)
+    {
+        const int maxLength = 80;
+        return url.Length > maxLength ? string.Concat(url.AsSpan(0, maxLength), "...") : url;
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
