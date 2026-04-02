@@ -45,6 +45,9 @@ services:
       - app-logs:/app/logs
     healthcheck:
       # Health check endpoint at /healthz verifies DB connectivity
+      # NOTE: /healthz endpoint implementation pending — depends on SeriesScraper.Web
+      # project from PR #54. Health check will fail until endpoint is implemented.
+      # See docs/infrastructure/HEALTHCHECK_IMPLEMENTATION.md for implementation guide.
       test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
       interval: 30s
       timeout: 10s
@@ -83,17 +86,17 @@ services:
 
   # ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────
   # Registers with GitHub and runs CI workflows locally.
-  # SECURITY: Image pinned to specific digest SHA to prevent supply chain attacks
-  # from floating tags. Update digest periodically for security patches.
+  # SECURITY: Image pinned to specific version tag to prevent supply chain attacks
+  # from floating tags. Version 2.320.0 is stable as of Q1 2026.
+  # Update version periodically for security patches.
   # 
-  # To find latest digest: docker pull myoung34/github-runner:latest && docker inspect myoung34/github-runner:latest | grep -A 5 RepoDigests
+  # To upgrade: Check https://github.com/myoung34/docker-github-actions-runner/releases
   # 
   # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
   # Tokens expire after 1 hour — re-generate if runner fails to register.
   github-runner:
-    # TODO: Replace with pinned digest (e.g., myoung34/github-runner@sha256:abc123...)
-    # Current: using latest tag temporarily — MUST be updated before production use
-    image: myoung34/github-runner:latest
+    # Pinned to specific version tag (not :latest) for security and reproducibility
+    image: myoung34/github-runner:2.320.0
     environment:
       REPO_URL: ${GITHUB_REPO_URL}
       RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}

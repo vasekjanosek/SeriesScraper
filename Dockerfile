@@ -85,6 +85,9 @@ RUN addgroup -g 1001 -S appgroup \
 USER appuser
 
 # Health check: Verify application is responding and DB is reachable
+# NOTE: /healthz endpoint implementation pending — depends on SeriesScraper.Web
+# project from PR #54. Health check will fail until endpoint is implemented.
+# See docs/infrastructure/HEALTHCHECK_IMPLEMENTATION.md for implementation guide.
 # The /healthz endpoint should verify:
 # - Application is running
 # - Database connection is healthy
