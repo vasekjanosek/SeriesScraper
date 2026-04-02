@@ -28,5 +28,6 @@ public class ScrapeRun
     
     // Navigation properties
     public Forum Forum { get; set; } = null!;
+    public ICollection<ScrapeRunItem> Items { get; set; } = new List<ScrapeRunItem>();
     public ICollection<Link> Links { get; set; } = new List<Link>();
 }

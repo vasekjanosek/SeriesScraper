@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<ForumSection> ForumSections => Set<ForumSection>();
     public DbSet<ContentType> ContentTypes => Set<ContentType>();
     public DbSet<ScrapeRun> ScrapeRuns => Set<ScrapeRun>();
+    public DbSet<ScrapeRunItem> ScrapeRunItems => Set<ScrapeRunItem>();
     public DbSet<DataSource> DataSources => Set<DataSource>();
     public DbSet<MediaTitle> MediaTitles => Set<MediaTitle>();
     public DbSet<MediaTitleAlias> MediaTitleAliases => Set<MediaTitleAlias>();
