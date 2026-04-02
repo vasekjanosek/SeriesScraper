@@ -563,6 +563,41 @@ public class ImdbImportServiceTests : IDisposable
         importRun.RowsImported.Should().Be(250);
     }
 
+    [Fact]
+    public async Task RunImportAsync_TempFileDeletionFails_LogsWarningAndContinues()
+    {
+        // Create 4 real temp files; lock the first so File.Delete throws IOException
+        var tempPaths = CreateRealTempFiles(4);
+        var lockedPath = tempPaths[0];
+        using var lockStream = new FileStream(lockedPath, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var callIndex = 0;
+        _downloader.DownloadDatasetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ci => tempPaths[callIndex++]);
+
+        var logger = Substitute.For<ILogger<ImdbImportService>>();
+        var service = new TestableImdbImportService(
+            _context, _downloader, _parser, _stagingRepo, logger);
+
+        var importRunId = await service.RunImportAsync(CancellationToken.None);
+
+        // Should complete without throwing — exception caught in CleanupTempFiles
+        importRunId.Should().BeGreaterThan(0);
+        var run = await _context.DataSourceImportRuns.FindAsync(importRunId);
+        run!.Status.Should().Be(ImportRunStatus.Complete.ToString());
+
+        // The locked file should still exist (deletion failed)
+        File.Exists(lockedPath).Should().BeTrue("file deletion should have failed due to lock");
+
+        // Verify warning was logged (not rethrown)
+        logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Is<Exception>(ex => ex != null),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
     public void Dispose()
     {
         _context.Dispose();
