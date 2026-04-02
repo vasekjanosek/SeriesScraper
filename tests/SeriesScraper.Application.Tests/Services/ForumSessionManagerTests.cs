@@ -1,3 +1,4 @@
+using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -27,6 +28,7 @@ public class ForumSessionManagerTests : IDisposable
 
     public ForumSessionManagerTests()
     {
+        _forumScraper.GetCookieContainer().Returns(_ => new CookieContainer());
         _sut = new ForumSessionManager(_forumScraper, _credentialService, _logger);
     }
 
@@ -476,5 +478,26 @@ public class ForumSessionManagerTests : IDisposable
         await Task.Delay(100);
 
         sut.IsSessionValid(forum.ForumId).Should().BeFalse();
+    }
+
+    // ── Cookie Transfer ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_UsesCookiesFromForumScraper()
+    {
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+
+        var scraperCookies = new CookieContainer();
+        scraperCookies.Add(new Uri("https://forum.example.com"), new Cookie("session_id", "abc123"));
+        _forumScraper.GetCookieContainer().Returns(scraperCookies);
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var client = await _sut.GetAuthenticatedClientAsync(forum);
+
+        // The returned client should have the scraper's cookies
+        _forumScraper.Received().GetCookieContainer();
+        client.Should().NotBeNull();
     }
 }

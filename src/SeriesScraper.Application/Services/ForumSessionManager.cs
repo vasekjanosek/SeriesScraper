@@ -172,7 +172,8 @@ public sealed class ForumSessionManager : IForumSessionManager
                 $"Authentication failed for forum '{forum.Name}' with username '{forum.Username}'.");
         }
 
-        var cookieContainer = new CookieContainer();
+        // Use the scraper's CookieContainer so auth cookies are shared
+        var cookieContainer = _forumScraper.GetCookieContainer();
         var handler = new HttpClientHandler
         {
             CookieContainer = cookieContainer,
