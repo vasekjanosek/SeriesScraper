@@ -1,7 +1,7 @@
 using FluentAssertions;
-using SeriesScraper.Application.Services;
+using SeriesScraper.Infrastructure.Services;
 
-namespace SeriesScraper.Application.Tests.Services;
+namespace SeriesScraper.Infrastructure.Tests.Services;
 
 public class HtmlContentSanitizerTests
 {

@@ -1,7 +1,7 @@
 using Ganss.Xss;
 using SeriesScraper.Domain.Interfaces;
 
-namespace SeriesScraper.Application.Services;
+namespace SeriesScraper.Infrastructure.Services;
 
 /// <summary>
 /// Sanitizes HTML content using HtmlSanitizer to prevent XSS attacks.
