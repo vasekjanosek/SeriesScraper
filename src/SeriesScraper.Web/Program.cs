@@ -67,6 +67,10 @@ try
     builder.Services.AddScoped<IMetadataSource, ImdbMetadataSource>();
     builder.Services.AddScoped<IImdbMatchingService, ImdbMatchingService>();
 
+    // Results service
+    builder.Services.AddScoped<IResultsService, ResultsService>();
+    builder.Services.AddScoped<IResultsQueryRepository, ResultsQueryRepository>();
+
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 
