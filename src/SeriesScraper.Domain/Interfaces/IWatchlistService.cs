@@ -1,3 +1,4 @@
+using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 
 namespace SeriesScraper.Domain.Interfaces;
@@ -12,6 +13,7 @@ public interface IWatchlistService
     Task ToggleActiveAsync(int watchlistItemId, CancellationToken ct = default);
     Task UpdateNotificationPreferenceAsync(int watchlistItemId, NotificationPreference preference, CancellationToken ct = default);
     Task<IReadOnlyList<WatchlistMatchDto>> CheckNewMatchesAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<MediaTitle>> SearchMediaTitlesAsync(string title, int maxResults, CancellationToken ct = default);
 }
 
 public record WatchlistItemDto

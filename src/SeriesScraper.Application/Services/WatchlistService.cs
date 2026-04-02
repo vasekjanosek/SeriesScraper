@@ -3,6 +3,7 @@ using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
 
+
 namespace SeriesScraper.Application.Services;
 
 public class WatchlistService : IWatchlistService
@@ -110,6 +111,14 @@ public class WatchlistService : IWatchlistService
         item.NotificationPreference = preference;
         await _watchlistRepository.UpdateAsync(item, ct);
         _logger.LogInformation("Updated notification preference for watchlist item {WatchlistItemId} to {Preference}", watchlistItemId, preference);
+    }
+
+    public async Task<IReadOnlyList<MediaTitle>> SearchMediaTitlesAsync(string title, int maxResults, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return Array.Empty<MediaTitle>();
+
+        return await _mediaTitleRepository.SearchByTitleAsync(title.Trim(), maxResults: maxResults, ct: ct);
     }
 
     public async Task<IReadOnlyList<WatchlistMatchDto>> CheckNewMatchesAsync(CancellationToken ct = default)

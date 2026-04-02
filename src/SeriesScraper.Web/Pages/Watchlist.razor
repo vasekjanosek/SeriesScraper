@@ -2,7 +2,6 @@
 @using SeriesScraper.Domain.Enums
 @using SeriesScraper.Domain.Interfaces
 @inject IWatchlistService WatchlistService
-@inject IMediaTitleRepository MediaTitleRepository
 
 <PageTitle>Watchlist</PageTitle>
 
@@ -216,7 +215,7 @@ else
         _successMessage = null;
         if (string.IsNullOrWhiteSpace(_searchTerm)) return;
 
-        _searchResults = await MediaTitleRepository.SearchByTitleAsync(
+        _searchResults = await WatchlistService.SearchMediaTitlesAsync(
             _searchTerm.Trim(), maxResults: 20);
     }
 

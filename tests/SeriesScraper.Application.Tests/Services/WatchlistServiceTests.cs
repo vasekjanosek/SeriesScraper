@@ -525,4 +525,50 @@ public class WatchlistServiceTests
         dto.ImdbVoteCount.Should().BeNull();
         dto.LastMatchedAt.Should().BeNull();
     }
+
+    // ─── SearchMediaTitlesAsync ────────────────────────────────────
+
+    [Fact]
+    public async Task SearchMediaTitlesAsync_DelegatesToRepository()
+    {
+        var expected = new List<MediaTitle>
+        {
+            new() { MediaId = 1, CanonicalTitle = "Breaking Bad", Type = MediaType.Series, Year = 2008, SourceId = 1 },
+            new() { MediaId = 2, CanonicalTitle = "Breaking In", Type = MediaType.Series, Year = 2011, SourceId = 1 }
+        }.AsReadOnly();
+
+        _mediaTitleRepository.SearchByTitleAsync("Breaking", null, null, 10, Arg.Any<CancellationToken>())
+            .Returns(expected);
+
+        var result = await _sut.SearchMediaTitlesAsync("Breaking", 10);
+
+        result.Should().HaveCount(2);
+        result[0].CanonicalTitle.Should().Be("Breaking Bad");
+        result[1].CanonicalTitle.Should().Be("Breaking In");
+    }
+
+    [Fact]
+    public async Task SearchMediaTitlesAsync_TrimsInput()
+    {
+        _mediaTitleRepository.SearchByTitleAsync("Test", null, null, 5, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<MediaTitle>().AsReadOnly() as IReadOnlyList<MediaTitle>);
+
+        var result = await _sut.SearchMediaTitlesAsync("  Test  ", 5);
+
+        result.Should().BeEmpty();
+        await _mediaTitleRepository.Received(1).SearchByTitleAsync("Test", null, null, 5, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SearchMediaTitlesAsync_ReturnsEmpty_WhenTitleIsBlank(string? title)
+    {
+        var result = await _sut.SearchMediaTitlesAsync(title!, 10);
+
+        result.Should().BeEmpty();
+        await _mediaTitleRepository.DidNotReceive().SearchByTitleAsync(
+            Arg.Any<string>(), Arg.Any<MediaType?>(), Arg.Any<int?>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
 }
