@@ -1,3 +1,4 @@
+using System.Net;
 using SeriesScraper.Domain.Exceptions;
 using SeriesScraper.Domain.ValueObjects;
 
@@ -19,6 +20,13 @@ public interface IForumScraper
     /// <returns>True if authentication succeeded; false otherwise.</returns>
     /// <exception cref="ScrapingException">Thrown on network or protocol errors.</exception>
     Task<bool> AuthenticateAsync(ForumCredentials credentials, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the CookieContainer holding the current session cookies.
+    /// Must be called after a successful <see cref="AuthenticateAsync"/> to obtain
+    /// cookies that can be shared with other HTTP clients.
+    /// </summary>
+    CookieContainer GetCookieContainer();
 
     /// <summary>
     /// Checks whether the current session is still valid.

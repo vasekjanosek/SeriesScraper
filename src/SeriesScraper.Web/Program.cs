@@ -38,6 +38,9 @@ try
     // Scraping job queue (singleton — shared between UI and BackgroundService)
     builder.Services.AddSingleton<IScrapingJobQueue, ScrapingJobQueue>();
 
+    // Session management (scoped — one session manager per scope/circuit)
+    builder.Services.AddScoped<IForumSessionManager, ForumSessionManager>();
+
     // Scoped services
     builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();
     builder.Services.AddScoped<IScrapeRunRepository, ScrapeRunRepository>();
