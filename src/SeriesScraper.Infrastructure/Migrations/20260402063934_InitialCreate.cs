@@ -365,7 +365,7 @@ namespace SeriesScraper.Infrastructure.Migrations
             migrationBuilder.Sql(
                 "CREATE INDEX ix_link_types_is_active_partial ON link_types (name) WHERE is_active = true;");
             migrationBuilder.Sql(
-                "CREATE INDEX ix_links_is_current_partial ON links (media_title_id, link_type_id) WHERE is_current = true;");
+                "CREATE INDEX ix_links_is_current_partial ON links (run_id, link_type_id) WHERE is_current = true;");
         }
 
         /// <inheritdoc />
