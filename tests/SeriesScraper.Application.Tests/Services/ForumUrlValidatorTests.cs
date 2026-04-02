@@ -236,4 +236,168 @@ public class ForumUrlValidatorTests
         _validator.IsUrlSafe("http://127.0.0.1").Should().BeFalse();
         _validator.IsUrlSafe("https://example.com").Should().BeTrue();
     }
+
+    // --- Malformed URL edge cases ---
+
+    [Theory]
+    [InlineData("http://")]
+    [InlineData("https://")]
+    [InlineData("://missing-scheme.com")]
+    [InlineData("htp://typo-scheme.com")]
+    public void IsUrlSafe_MalformedUrl_MissingOrBadScheme_ReturnsFalse(string url)
+    {
+        _validator.IsUrlSafe(url, out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("http://example .com")]
+    [InlineData("http://exam ple.com/path")]
+    public void IsUrlSafe_UrlWithSpaces_ReturnsFalse(string url)
+    {
+        _validator.IsUrlSafe(url, out _).Should().BeFalse();
+    }
+
+    // --- Protocol edge cases ---
+
+    [Theory]
+    [InlineData("data:text/html,<h1>Hi</h1>")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("mailto:user@example.com")]
+    public void IsUrlSafe_DangerousSchemes_ReturnsFalse(string url)
+    {
+        _validator.IsUrlSafe(url, out var reason).Should().BeFalse();
+        reason.Should().Contain("not allowed");
+    }
+
+    // --- URL with credentials (user:pass@host) ---
+
+    [Fact]
+    public void IsUrlSafe_UrlWithCredentials_PublicHost_ReturnsTrue()
+    {
+        _validator.IsUrlSafe("https://user:pass@forum.example.com/path").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsUrlSafe_UrlWithCredentials_PrivateHost_ReturnsFalse()
+    {
+        _validator.IsUrlSafe("https://admin:secret@192.168.1.1/admin", out var reason).Should().BeFalse();
+        reason.Should().Contain("blocked");
+    }
+
+    // --- Very long URLs ---
+
+    [Fact]
+    public void IsUrlSafe_VeryLongUrl_PublicHost_ReturnsTrue()
+    {
+        var longPath = new string('a', 2000);
+        _validator.IsUrlSafe($"https://forum.example.com/{longPath}").Should().BeTrue();
+    }
+
+    // --- Unicode / IDN domain names ---
+
+    [Fact]
+    public void IsUrlSafe_UnicodeDomain_ReturnsTrue()
+    {
+        // IDN domains are parsed by Uri and should be treated as valid public domains
+        _validator.IsUrlSafe("https://fórum.example.com/path").Should().BeTrue();
+    }
+
+    // --- Boundary IP addresses for 172.16.0.0/12 ---
+
+    [Theory]
+    [InlineData("172.15.255.255", false)]   // Just below range — allowed
+    [InlineData("172.16.0.0", true)]        // First address in range — blocked
+    [InlineData("172.31.255.255", true)]    // Last address in range — blocked
+    [InlineData("172.32.0.0", false)]       // Just above range — allowed
+    public void IsBlockedIpAddress_172Range_BoundaryCheck(string ip, bool expectedBlocked)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().Be(expectedBlocked);
+    }
+
+    // --- IPv4-mapped IPv6 addresses ---
+
+    [Theory]
+    [InlineData("::ffff:10.0.0.1", true)]      // Private 10.x mapped to IPv6
+    [InlineData("::ffff:192.168.1.1", true)]    // Private 192.168.x mapped to IPv6
+    [InlineData("::ffff:8.8.8.8", false)]       // Public IP mapped to IPv6
+    public void IsBlockedIpAddress_IPv4MappedToIPv6_ReturnsCorrectResult(string ip, bool expectedBlocked)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().Be(expectedBlocked);
+    }
+
+    // --- IPv6 link-local (fe80::/10) ---
+
+    [Theory]
+    [InlineData("fe80::1")]
+    [InlineData("fe80::abcd:1234")]
+    public void IsBlockedIpAddress_IPv6LinkLocal_ReturnsTrue(string ip)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().BeTrue();
+    }
+
+    // --- IPv6 site-local (fec0::/10) ---
+
+    [Theory]
+    [InlineData("fec0::1")]
+    [InlineData("fec0::abcd")]
+    public void IsBlockedIpAddress_IPv6SiteLocal_ReturnsTrue(string ip)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().BeTrue();
+    }
+
+    // --- IPv6 unique local (fc00::/7) ---
+
+    [Theory]
+    [InlineData("fc00::1")]
+    [InlineData("fd00::1")]
+    [InlineData("fdab::1234")]
+    public void IsBlockedIpAddress_IPv6UniqueLocal_ReturnsTrue(string ip)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().BeTrue();
+    }
+
+    // --- IPv6 global address (not blocked) ---
+
+    [Theory]
+    [InlineData("2001:db8::1")]
+    [InlineData("2607:f8b0:4004:800::200e")]
+    public void IsBlockedIpAddress_IPv6GlobalUnicast_ReturnsFalse(string ip)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().BeFalse();
+    }
+
+    // --- 198.18-19 benchmarking range boundary ---
+
+    [Theory]
+    [InlineData("198.18.0.1", true)]
+    [InlineData("198.19.255.255", true)]
+    [InlineData("198.17.255.255", false)]
+    [InlineData("198.20.0.0", false)]
+    public void IsBlockedIpAddress_BenchmarkRange_BoundaryCheck(string ip, bool expectedBlocked)
+    {
+        var address = System.Net.IPAddress.Parse(ip);
+        ForumUrlValidator.IsBlockedIpAddress(address).Should().Be(expectedBlocked);
+    }
+
+    // --- IsUrlSafe with IPv6 in URL form ---
+
+    [Fact]
+    public void IsUrlSafe_IPv6LinkLocal_InUrl_ReturnsFalse()
+    {
+        _validator.IsUrlSafe("http://[fe80::1]", out var reason).Should().BeFalse();
+        reason.Should().Contain("blocked");
+    }
+
+    [Fact]
+    public void IsUrlSafe_IPv6UniqueLocal_InUrl_ReturnsFalse()
+    {
+        _validator.IsUrlSafe("http://[fd00::1]", out var reason).Should().BeFalse();
+        reason.Should().Contain("blocked");
+    }
 }
