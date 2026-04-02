@@ -256,6 +256,365 @@ public class ImdbDatasetParserTests
             dataRows);
     }
     
+    // ===== Edge-case / error-path tests for ≥90% coverage =====
+
+    [Fact]
+    public async Task ParseTitleBasicsAsync_IsAdultTrue_ParsesCorrectly()
+    {
+        var gzipPath = CreateTitleBasicsFile(new[]
+        {
+            "tt0000001\tadult\tAdult Film\tOriginal Title\t1\t2020\t\\N\t90\tAdult"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleBasicsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().ContainSingle();
+        entities[0].IsAdult.Should().BeTrue();
+        entities[0].OriginalTitle.Should().Be("Original Title");
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleBasicsAsync_EmptyFile_ReturnsNoChunks()
+    {
+        var gzipPath = CreateTitleBasicsFile(Array.Empty<string>());
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleBasicsStaging>>();
+        await foreach (var chunk in parser.ParseTitleBasicsAsync(gzipPath, chunkSize: 10))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().BeEmpty();
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleBasicsAsync_WhitespaceIntField_ReturnsNull()
+    {
+        var gzipPath = CreateTitleBasicsFile(new[]
+        {
+            "tt0000001\tmovie\tTest\t\\N\t0\t \t\\N\t\\N\t\\N"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleBasicsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().ContainSingle();
+        entities[0].StartYear.Should().BeNull();
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleBasicsAsync_LongMalformedRow_TruncatesInLog()
+    {
+        // Row > 200 chars to trigger TruncateRow
+        var longRow = new string('X', 300);
+        var gzipPath = CreateTitleBasicsFile(new[]
+        {
+            "tt0000001\tmovie\tValid\t\\N\t0\t2020\t\\N\t120\tAction",
+            longRow, // malformed and long
+            "tt0000003\tmovie\tValid2\t\\N\t0\t2021\t\\N\t130\tDrama"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleBasicsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleAkasAsync_MalformedRow_LogsAndContinues()
+    {
+        var gzipPath = CreateTitleAkasFile(new[]
+        {
+            "tt0000001\t1\tThe Matrix\tUS\ten\toriginal\t\\N\t1",
+            "MALFORMED\tONLY_TWO",
+            "tt0000003\t2\tMatrix\tCZ\tcs\t\\N\t\\N\t0"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleAkasAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+        entities[0].Tconst.Should().Be("tt0000001");
+        entities[1].Tconst.Should().Be("tt0000003");
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleAkasAsync_NullOptionalFields_ParsesCorrectly()
+    {
+        var gzipPath = CreateTitleAkasFile(new[]
+        {
+            "tt0000001\t1\tTitle\t\\N\t\\N\t\\N\t\\N\t0"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleAkasAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().ContainSingle();
+        var e = entities[0];
+        e.Region.Should().BeNull();
+        e.Language.Should().BeNull();
+        e.Types.Should().BeNull();
+        e.Attributes.Should().BeNull();
+        e.IsOriginalTitle.Should().BeFalse();
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleAkasAsync_EmptyFile_ReturnsNoChunks()
+    {
+        var gzipPath = CreateTitleAkasFile(Array.Empty<string>());
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleAkasStaging>>();
+        await foreach (var chunk in parser.ParseTitleAkasAsync(gzipPath, chunkSize: 10))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().BeEmpty();
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleAkasAsync_ChunksDataCorrectly()
+    {
+        var rows = Enumerable.Range(1, 75)
+            .Select(i => $"tt{i:D7}\t{i}\tTitle {i}\tUS\ten\t\\N\t\\N\t1")
+            .ToArray();
+
+        var gzipPath = CreateTitleAkasFile(rows);
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleAkasStaging>>();
+        await foreach (var chunk in parser.ParseTitleAkasAsync(gzipPath, chunkSize: 25))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().HaveCount(3);
+        chunks[0].Should().HaveCount(25);
+        chunks[1].Should().HaveCount(25);
+        chunks[2].Should().HaveCount(25);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleEpisodeAsync_MalformedRow_LogsAndContinues()
+    {
+        var gzipPath = CreateTitleEpisodeFile(new[]
+        {
+            "tt0001000\ttt0000001\t1\t5",
+            "BAD_ROW",
+            "tt0001002\ttt0000001\t2\t3"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleEpisodeAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+        entities[0].Tconst.Should().Be("tt0001000");
+        entities[1].Tconst.Should().Be("tt0001002");
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleEpisodeAsync_NullSeasonAndEpisode_ParsesCorrectly()
+    {
+        var gzipPath = CreateTitleEpisodeFile(new[]
+        {
+            "tt0001000\ttt0000001\t\\N\t\\N"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleEpisodeAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().ContainSingle();
+        entities[0].SeasonNumber.Should().BeNull();
+        entities[0].EpisodeNumber.Should().BeNull();
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleEpisodeAsync_EmptyFile_ReturnsNoChunks()
+    {
+        var gzipPath = CreateTitleEpisodeFile(Array.Empty<string>());
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleEpisodeStaging>>();
+        await foreach (var chunk in parser.ParseTitleEpisodeAsync(gzipPath, chunkSize: 10))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().BeEmpty();
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleEpisodeAsync_ChunksDataCorrectly()
+    {
+        var rows = Enumerable.Range(1, 60)
+            .Select(i => $"tt{i:D7}\ttt0000001\t{i}\t{i}")
+            .ToArray();
+
+        var gzipPath = CreateTitleEpisodeFile(rows);
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleEpisodeStaging>>();
+        await foreach (var chunk in parser.ParseTitleEpisodeAsync(gzipPath, chunkSize: 20))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().HaveCount(3);
+        chunks[0].Should().HaveCount(20);
+        chunks[1].Should().HaveCount(20);
+        chunks[2].Should().HaveCount(20);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleRatingsAsync_MalformedRow_LogsAndContinues()
+    {
+        var gzipPath = CreateTitleRatingsFile(new[]
+        {
+            "tt0000001\t8.7\t1500000",
+            "MALFORMED",
+            "tt0000003\t9.1\t2000000"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleRatingsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+        entities[0].Tconst.Should().Be("tt0000001");
+        entities[1].Tconst.Should().Be("tt0000003");
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleRatingsAsync_InvalidDecimal_SkipsRow()
+    {
+        var gzipPath = CreateTitleRatingsFile(new[]
+        {
+            "tt0000001\t8.7\t1500000",
+            "tt0000002\tNOT_A_NUMBER\t1000",
+            "tt0000003\t9.1\t2000000"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleRatingsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleRatingsAsync_EmptyFile_ReturnsNoChunks()
+    {
+        var gzipPath = CreateTitleRatingsFile(Array.Empty<string>());
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleRatingsStaging>>();
+        await foreach (var chunk in parser.ParseTitleRatingsAsync(gzipPath, chunkSize: 10))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().BeEmpty();
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleRatingsAsync_ChunksDataCorrectly()
+    {
+        var rows = Enumerable.Range(1, 40)
+            .Select(i => $"tt{i:D7}\t{5.0 + i * 0.1:F1}\t{i * 1000}")
+            .ToArray();
+
+        var gzipPath = CreateTitleRatingsFile(rows);
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+
+        var chunks = new List<List<ImdbTitleRatingsStaging>>();
+        await foreach (var chunk in parser.ParseTitleRatingsAsync(gzipPath, chunkSize: 15))
+        {
+            chunks.Add(chunk);
+        }
+
+        chunks.Should().HaveCount(3); // 15 + 15 + 10
+        chunks[0].Should().HaveCount(15);
+        chunks[1].Should().HaveCount(15);
+        chunks[2].Should().HaveCount(10);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleAkasAsync_InvalidOrdering_SkipsRow()
+    {
+        var gzipPath = CreateTitleAkasFile(new[]
+        {
+            "tt0000001\t1\tTitle1\tUS\ten\t\\N\t\\N\t1",
+            "tt0000002\tNOT_INT\tTitle2\tUS\ten\t\\N\t\\N\t0",
+            "tt0000003\t3\tTitle3\tUS\ten\t\\N\t\\N\t1"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleAkasAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+
+        File.Delete(gzipPath);
+    }
+
+    [Fact]
+    public async Task ParseTitleBasicsAsync_InvalidIntInYear_SkipsRow()
+    {
+        var gzipPath = CreateTitleBasicsFile(new[]
+        {
+            "tt0000001\tmovie\tValid\t\\N\t0\t2020\t\\N\t120\tAction",
+            "tt0000002\tmovie\tBad Year\t\\N\t0\tNOT_INT\t\\N\t120\tDrama",
+            "tt0000003\tmovie\tValid2\t\\N\t0\t2021\t\\N\t130\tComedy"
+        });
+
+        var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var entities = await CollectAsync(parser.ParseTitleBasicsAsync(gzipPath, chunkSize: 10));
+
+        entities.Should().HaveCount(2);
+
+        File.Delete(gzipPath);
+    }
+
+    // ===== Helpers =====
+
+    private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<List<T>> source)
+    {
+        var all = new List<T>();
+        await foreach (var chunk in source)
+        {
+            all.AddRange(chunk);
+        }
+        return all;
+    }
+
     private static string CreateGzipFile(string header, string[] dataRows)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}.tsv.gz");

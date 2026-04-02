@@ -41,7 +41,7 @@ public class ImdbImportService
     /// Runs the full IMDB import pipeline.
     /// Returns the import run ID for tracking.
     /// </summary>
-    public async Task<int> RunImportAsync(CancellationToken cancellationToken)
+    public virtual async Task<int> RunImportAsync(CancellationToken cancellationToken)
     {
         var importRun = new DataSourceImportRun
         {
@@ -104,7 +104,7 @@ public class ImdbImportService
         }
     }
     
-    private async Task ImportToStagingTablesAsync(
+    protected virtual async Task ImportToStagingTablesAsync(
         string basicsPath,
         string akasPath,
         string episodePath,
@@ -251,7 +251,7 @@ public class ImdbImportService
         await writer.CompleteAsync(cancellationToken);
     }
     
-    private async Task UpsertToLiveTablesAsync(CancellationToken cancellationToken)
+    protected virtual async Task UpsertToLiveTablesAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Upserting from staging to live tables");
         
@@ -342,7 +342,7 @@ public class ImdbImportService
         _logger.LogInformation("Upsert completed");
     }
     
-    private async Task CleanupStagingTablesAsync(CancellationToken cancellationToken)
+    protected virtual async Task CleanupStagingTablesAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Truncating staging tables");
         

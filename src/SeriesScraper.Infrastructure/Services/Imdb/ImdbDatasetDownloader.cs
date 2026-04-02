@@ -33,7 +33,7 @@ public class ImdbDatasetDownloader
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Path to the downloaded temp file</returns>
     /// <exception cref="InvalidDataException">Thrown if download validation fails</exception>
-    public async Task<string> DownloadDatasetAsync(string datasetName, CancellationToken cancellationToken)
+    public virtual async Task<string> DownloadDatasetAsync(string datasetName, CancellationToken cancellationToken)
     {
         var url = $"{BaseUrl}/{datasetName}";
         _logger.LogInformation("Starting download of {DatasetName} from {Url}", datasetName, url);
