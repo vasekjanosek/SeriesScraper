@@ -39,6 +39,7 @@ public class AppDbContext : DbContext
     public DbSet<ImdbTitleAkasStaging> ImdbTitleAkasStaging => Set<ImdbTitleAkasStaging>();
     public DbSet<ImdbTitleEpisodeStaging> ImdbTitleEpisodeStaging => Set<ImdbTitleEpisodeStaging>();
     public DbSet<ImdbTitleRatingsStaging> ImdbTitleRatingsStaging => Set<ImdbTitleRatingsStaging>();
+    public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

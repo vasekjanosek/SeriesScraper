@@ -81,6 +81,10 @@ try
     builder.Services.AddScoped<IResultsService, ResultsService>();
     builder.Services.AddScoped<IResultsQueryRepository, ResultsQueryRepository>();
 
+    // Watchlist service (#19)
+    builder.Services.AddScoped<IWatchlistService, WatchlistService>();
+    builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();
+
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 
