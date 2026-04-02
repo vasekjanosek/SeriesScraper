@@ -5,46 +5,37 @@ namespace SeriesScraper.Application.Services;
 
 public class AppInfoService : IAppInfoService
 {
-    private readonly ISettingRepository _settingRepository;
-    private readonly IDataSourceImportRunRepository _importRunRepository;
+    private readonly IDatabaseStatsProvider _statsProvider;
     private readonly ILogger<AppInfoService> _logger;
     private static readonly DateTime StartTime = DateTime.UtcNow;
 
     public AppInfoService(
-        ISettingRepository settingRepository,
-        IDataSourceImportRunRepository importRunRepository,
+        IDatabaseStatsProvider statsProvider,
         ILogger<AppInfoService> logger)
     {
-        _settingRepository = settingRepository;
-        _importRunRepository = importRunRepository;
+        _statsProvider = statsProvider;
         _logger = logger;
     }
 
     public async Task<DatabaseStatsDto> GetDatabaseStatsAsync(CancellationToken ct = default)
     {
-        // Settings table count serves as a health check
-        var settings = await _settingRepository.GetAllAsync(ct);
-
-        var counts = new List<TableRowCount>
-        {
-            new() { TableName = "Settings", RowCount = settings.Count }
-        };
-
+        var counts = await _statsProvider.GetTableRowCountsAsync(ct);
         return new DatabaseStatsDto { TableCounts = counts };
     }
 
-    public Task<AppInfoDto> GetAppInfoAsync(CancellationToken ct = default)
+    public async Task<AppInfoDto> GetAppInfoAsync(CancellationToken ct = default)
     {
         var version = typeof(AppInfoService).Assembly.GetName().Version?.ToString() ?? "1.0.0";
         var uptime = DateTime.UtcNow - StartTime;
+        var dbConnected = await _statsProvider.CheckConnectionAsync(ct);
+        var dbStats = await GetDatabaseStatsAsync(ct);
 
-        var info = new AppInfoDto
+        return new AppInfoDto
         {
             Version = version,
             Uptime = uptime,
-            DatabaseStats = new DatabaseStatsDto()
+            DatabaseStats = dbStats,
+            DatabaseConnected = dbConnected
         };
-
-        return Task.FromResult(info);
     }
 }

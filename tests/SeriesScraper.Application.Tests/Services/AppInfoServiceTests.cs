@@ -2,28 +2,27 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SeriesScraper.Application.Services;
-using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Interfaces;
 
 namespace SeriesScraper.Application.Tests.Services;
 
 public class AppInfoServiceTests
 {
-    private readonly ISettingRepository _settingRepository;
-    private readonly IDataSourceImportRunRepository _importRunRepository;
+    private readonly IDatabaseStatsProvider _statsProvider;
     private readonly ILogger<AppInfoService> _logger;
     private readonly AppInfoService _sut;
 
     public AppInfoServiceTests()
     {
-        _settingRepository = Substitute.For<ISettingRepository>();
-        _importRunRepository = Substitute.For<IDataSourceImportRunRepository>();
+        _statsProvider = Substitute.For<IDatabaseStatsProvider>();
         _logger = Substitute.For<ILogger<AppInfoService>>();
 
-        _sut = new AppInfoService(
-            _settingRepository,
-            _importRunRepository,
-            _logger);
+        _statsProvider.GetTableRowCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableRowCount>().AsReadOnly());
+        _statsProvider.CheckConnectionAsync(Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        _sut = new AppInfoService(_statsProvider, _logger);
     }
 
     // ─── GetAppInfoAsync ──────────────────────────────────────────
@@ -34,6 +33,7 @@ public class AppInfoServiceTests
         var result = await _sut.GetAppInfoAsync();
 
         result.Version.Should().NotBeNullOrEmpty();
+        result.Version.Should().MatchRegex(@"^\d+\.\d+\.\d+");
     }
 
     [Fact]
@@ -45,50 +45,42 @@ public class AppInfoServiceTests
     }
 
     [Fact]
-    public async Task GetAppInfoAsync_ReturnsDatabaseStatsObject()
+    public async Task GetAppInfoAsync_PopulatesDatabaseStats_NotEmpty()
     {
+        var counts = new List<TableRowCount>
+        {
+            new() { TableName = "Forums", RowCount = 3 },
+            new() { TableName = "MediaTitles", RowCount = 500 }
+        };
+        _statsProvider.GetTableRowCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(counts.AsReadOnly());
+
         var result = await _sut.GetAppInfoAsync();
 
         result.DatabaseStats.Should().NotBeNull();
-    }
-
-    // ─── GetDatabaseStatsAsync ────────────────────────────────────
-
-    [Fact]
-    public async Task GetDatabaseStatsAsync_ReturnsSettingsCount()
-    {
-        var settings = new List<Setting>
-        {
-            new() { Key = "A", Value = "1", LastModifiedAt = DateTime.UtcNow },
-            new() { Key = "B", Value = "2", LastModifiedAt = DateTime.UtcNow },
-            new() { Key = "C", Value = "3", LastModifiedAt = DateTime.UtcNow }
-        };
-        _settingRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(settings);
-
-        var result = await _sut.GetDatabaseStatsAsync();
-
-        result.TableCounts.Should().Contain(t => t.TableName == "Settings" && t.RowCount == 3);
+        result.DatabaseStats.TableCounts.Should().HaveCount(2);
+        result.DatabaseStats.TableCounts.Should().Contain(t => t.TableName == "Forums" && t.RowCount == 3);
+        result.DatabaseStats.TableCounts.Should().Contain(t => t.TableName == "MediaTitles" && t.RowCount == 500);
     }
 
     [Fact]
-    public async Task GetDatabaseStatsAsync_ReturnsZero_WhenNoSettings()
+    public async Task GetAppInfoAsync_ReturnsDatabaseConnectedTrue_WhenConnectionSucceeds()
     {
-        _settingRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new List<Setting>());
+        _statsProvider.CheckConnectionAsync(Arg.Any<CancellationToken>()).Returns(true);
 
-        var result = await _sut.GetDatabaseStatsAsync();
+        var result = await _sut.GetAppInfoAsync();
 
-        result.TableCounts.Should().Contain(t => t.TableName == "Settings" && t.RowCount == 0);
+        result.DatabaseConnected.Should().BeTrue();
     }
 
     [Fact]
-    public async Task GetDatabaseStatsAsync_PassesCancellationToken()
+    public async Task GetAppInfoAsync_ReturnsDatabaseConnectedFalse_WhenConnectionFails()
     {
-        var cts = new CancellationTokenSource();
-        _settingRepository.GetAllAsync(cts.Token).Returns(new List<Setting>());
+        _statsProvider.CheckConnectionAsync(Arg.Any<CancellationToken>()).Returns(false);
 
-        await _sut.GetDatabaseStatsAsync(cts.Token);
+        var result = await _sut.GetAppInfoAsync();
 
-        await _settingRepository.Received(1).GetAllAsync(cts.Token);
+        result.DatabaseConnected.Should().BeFalse();
     }
 
     [Fact]
@@ -96,18 +88,56 @@ public class AppInfoServiceTests
     {
         var cts = new CancellationTokenSource();
 
-        var result = await _sut.GetAppInfoAsync(cts.Token);
+        await _sut.GetAppInfoAsync(cts.Token);
 
-        result.Should().NotBeNull();
+        await _statsProvider.Received(1).CheckConnectionAsync(cts.Token);
+        await _statsProvider.Received(1).GetTableRowCountsAsync(cts.Token);
     }
 
+    // ─── GetDatabaseStatsAsync ────────────────────────────────────
+
     [Fact]
-    public async Task GetDatabaseStatsAsync_TableCountsNotNull()
+    public async Task GetDatabaseStatsAsync_ReturnsActualTableCounts()
     {
-        _settingRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new List<Setting>());
+        var counts = new List<TableRowCount>
+        {
+            new() { TableName = "Forums", RowCount = 5 },
+            new() { TableName = "MediaTitles", RowCount = 1200 },
+            new() { TableName = "Links", RowCount = 300 },
+            new() { TableName = "ScrapeRuns", RowCount = 10 },
+            new() { TableName = "Settings", RowCount = 3 },
+            new() { TableName = "LinkTypes", RowCount = 8 }
+        };
+        _statsProvider.GetTableRowCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(counts.AsReadOnly());
 
         var result = await _sut.GetDatabaseStatsAsync();
 
-        result.TableCounts.Should().NotBeNull();
+        result.TableCounts.Should().HaveCount(6);
+        result.TableCounts.Should().Contain(t => t.TableName == "Forums" && t.RowCount == 5);
+        result.TableCounts.Should().Contain(t => t.TableName == "Links" && t.RowCount == 300);
+    }
+
+    [Fact]
+    public async Task GetDatabaseStatsAsync_ReturnsEmptyList_WhenNoData()
+    {
+        _statsProvider.GetTableRowCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableRowCount>().AsReadOnly());
+
+        var result = await _sut.GetDatabaseStatsAsync();
+
+        result.TableCounts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDatabaseStatsAsync_PassesCancellationToken()
+    {
+        var cts = new CancellationTokenSource();
+        _statsProvider.GetTableRowCountsAsync(cts.Token)
+            .Returns(new List<TableRowCount>().AsReadOnly());
+
+        await _sut.GetDatabaseStatsAsync(cts.Token);
+
+        await _statsProvider.Received(1).GetTableRowCountsAsync(cts.Token);
     }
 }

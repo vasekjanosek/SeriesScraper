@@ -22,4 +22,5 @@ public record AppInfoDto
     public required string Version { get; init; }
     public TimeSpan Uptime { get; init; }
     public DatabaseStatsDto DatabaseStats { get; init; } = new();
+    public bool DatabaseConnected { get; init; }
 }

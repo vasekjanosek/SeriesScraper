@@ -119,6 +119,18 @@ else
 
                     <dt class="col-sm-4">Uptime</dt>
                     <dd class="col-sm-8">@FormatUptime(_appInfo.Uptime)</dd>
+
+                    <dt class="col-sm-4">PostgreSQL</dt>
+                    <dd class="col-sm-8">
+                        @if (_appInfo.DatabaseConnected)
+                        {
+                            <span class="badge bg-success">Connected</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Disconnected</span>
+                        }
+                    </dd>
                 </dl>
 
                 @if (_dbStats is not null && _dbStats.TableCounts.Count > 0)
