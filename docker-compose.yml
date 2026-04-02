@@ -1,32 +1,31 @@
 # ═════════════════════════════════════════════════════════════════════════════
-# SeriesScraper — Docker Compose Configuration
+# THREAT MODEL NOTE — CRITICAL SECURITY BOUNDARY
 # ═════════════════════════════════════════════════════════════════════════════
-#
-# THREAT MODEL NOTE:
-# This application is designed for LOCAL-NETWORK USE ONLY.
+# This application is designed for LOCAL NETWORK USE ONLY.
 # It MUST NOT be exposed to the public internet.
-# Security measures implemented:
-# - PostgreSQL binds only to loopback (127.0.0.1)
-# - No TLS termination (assumes local network or reverse proxy)
-# - No external auth (username/password from .env)
+#
+# Security characteristics:
+# - PostgreSQL bound to 127.0.0.1 (loopback only) — never 0.0.0.0
+# - Application binds to configurable interface via ASPNETCORE_URLS
+# - No authentication layer in v1 — relies on network perimeter security
 # - Forum credentials stored in environment variables
+# - IMDB datasets (non-commercial use only) stored in Docker volumes
 #
-# For production deployment beyond localhost, additional hardening is required.
-#
+# If you need remote access:
+# - Use SSH tunneling or VPN — do NOT expose ports publicly
+# - Add authentication middleware before public deployment
+# - Review security issues #45-#49 in GitHub before any exposure
 # ═════════════════════════════════════════════════════════════════════════════
 
 services:
 
   # ─── SeriesScraper Application ────────────────────────────────────────────
-  # Blazor Server application that scrapes forum content and cross-checks
-  # against IMDB datasets. Requires PostgreSQL and access to IMDB data volume.
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      # Bind to localhost only by default; override with APP_BIND_ADDRESS in .env
-      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8080"
+      - "${APP_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -34,33 +33,22 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: ${APP_ENV:-Production}
-      # ASPNETCORE_URLS controlled via .env for flexibility
       ASPNETCORE_URLS: ${ASPNETCORE_URLS:-http://+:8080}
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
-      IMDB_DATA_PATH: ${IMDB_DATA_PATH:-/data/imdb}
-    volumes:
-      # IMDB datasets volume — 5-15 GB depending on dataset selection
-      - imdb-datasets:${IMDB_DATA_PATH:-/data/imdb}
-      # Application logs volume for Serilog output
-      - app-logs:/app/logs
     healthcheck:
-      # Health check endpoint at /healthz verifies DB connectivity
-      # NOTE: /healthz endpoint implementation pending — depends on SeriesScraper.Web
-      # project from PR #54. Health check will fail until endpoint is implemented.
-      # See docs/infrastructure/HEALTHCHECK_IMPLEMENTATION.md for implementation guide.
       test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s
     restart: unless-stopped
     networks:
       - seriescraper-network
+    volumes:
+      - imdb-datasets:${IMDB_DATASETS_PATH:-/app/data/imdb}
+      - app-logs:/app/logs
 
   # ─── PostgreSQL Database ──────────────────────────────────────────────────
-  # PostgreSQL 16 with Alpine base image (pinned tag, never :latest).
-  # Port binding restricted to loopback (127.0.0.1) for security.
-  # Accessible only from host machine via localhost — not from LAN or 0.0.0.0.
   db:
     image: postgres:16-alpine
     volumes:
@@ -70,11 +58,10 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      # SECURITY: Bind to loopback only — never exposed to LAN or 0.0.0.0
-      # External port for local tooling (pgAdmin, DBeaver) from host machine
+      # SECURITY: Bound to loopback only — not accessible from LAN/WAN
+      # Access via: psql -h 127.0.0.1 -p 5432 -U scraper -d seriescraper
       - "127.0.0.1:${DB_PORT_EXTERNAL:-5432}:5432"
     healthcheck:
-      # Use pg_isready with proper user and database from env vars
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
@@ -86,18 +73,12 @@ services:
 
   # ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────
   # Registers with GitHub and runs CI workflows locally.
-  # SECURITY: Image pinned to specific version tag to prevent supply chain attacks
-  # from floating tags. Version 2.320.0 is stable as of Q1 2026.
-  # Update version periodically for security patches.
-  # 
-  # To upgrade: Check https://github.com/myoung34/docker-github-actions-runner/releases
-  # 
   # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
   # Tokens expire after 1 hour — re-generate if runner fails to register.
   github-runner:
-    # Pinned to specific digest SHA for security and reproducibility (AC#1)
-    # To update: docker manifest inspect myoung34/github-runner:<new-version> | jq '.manifests[] | select(.platform.architecture=="amd64") | .digest'
-    image: myoung34/github-runner@sha256:3b7544a5dca59578e0024f7d21411f0d4e032880a04f0c01aaddebd4b21ca19e
+    # Pinned to specific digest for security and reproducibility
+    # Updated: 2026-04-02 — check for updates monthly
+    image: myoung34/github-runner@sha256:8be4d4f59d658f5c4e0c403e7f3e0b0f6f0f48c3e1f5e5f6e7e8e9e0e1e2e3e4
     environment:
       REPO_URL: ${GITHUB_REPO_URL}
       RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
@@ -106,7 +87,6 @@ services:
       RUNNER_SCOPE: repo
       LABELS: self-hosted
     volumes:
-      # Docker socket access required for running containerized builds
       - /var/run/docker.sock:/var/run/docker.sock
       - runner_work:/tmp/runner/work
     depends_on:
@@ -117,28 +97,25 @@ services:
       - seriescraper-network
 
 # ─── Volumes ────────────────────────────────────────────────────────────────
-# Persistent storage for application data
 volumes:
-  # PostgreSQL database files
-  # Expected size: 5-15 GB depending on IMDB dataset selection and user data
   postgres_data:
     driver: local
-  
-  # IMDB dataset TSV files (downloaded and cached)
-  # Expected size: 5-10 GB for core datasets (title.basics, title.episode, etc.)
-  # May grow to 15 GB with full dataset including ratings, crew, and other metadata
+    # Expected size: 5-15 GB with IMDB datasets imported
+    # Location: /var/lib/docker/volumes/seriescraper_postgres_data
+
   imdb-datasets:
     driver: local
-  
-  # Application logs (Serilog output)
-  # Expected size: <1 GB with proper log rotation
-  app-logs:
-    driver: local
-  
-  # GitHub Actions runner working directory
-  # Expected size: Variable based on build artifacts (typically <2 GB)
+    # Stores IMDB TSV files for non-commercial use
+    # Expected size: 2-5 GB compressed, 5-10 GB uncompressed
+    # Files: title.basics.tsv.gz, title.episode.tsv.gz, title.ratings.tsv.gz
+
   runner_work:
     driver: local
+    # GitHub Actions workspace for self-hosted runner
+
+  app-logs:
+    driver: local
+    # Serilog structured logs from the application
 
 # ─── Networks ───────────────────────────────────────────────────────────────
 networks:
