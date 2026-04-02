@@ -16,4 +16,5 @@ public interface IScrapeRunRepository
     Task IncrementProcessedItemsAsync(int runId, CancellationToken ct = default);
     Task AddRunItemAsync(ScrapeRunItem item, CancellationToken ct = default);
     Task UpdateRunItemStatusAsync(int runItemId, ScrapeRunItemStatus status, CancellationToken ct = default);
+    Task<IReadOnlyList<ScrapeRun>> GetActiveRunsAsync(CancellationToken ct = default);
 }

@@ -91,4 +91,14 @@ public class ScrapeRunRepository : IScrapeRunRepository
 
         await _context.SaveChangesAsync(ct);
     }
+
+    public async Task<IReadOnlyList<ScrapeRun>> GetActiveRunsAsync(CancellationToken ct = default)
+    {
+        return await _context.ScrapeRuns
+            .Include(r => r.Forum)
+            .Include(r => r.Items)
+            .Where(r => r.Status == ScrapeRunStatus.Pending || r.Status == ScrapeRunStatus.Running)
+            .OrderByDescending(r => r.StartedAt)
+            .ToListAsync(ct);
+    }
 }

@@ -85,6 +85,10 @@ try
     builder.Services.AddScoped<IWatchlistService, WatchlistService>();
     builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();
 
+    // Run progress service (#32)
+    builder.Services.AddScoped<IRunProgressService, RunProgressService>();
+    builder.Services.AddScoped<IScrapeRunItemRepository, ScrapeRunItemRepository>();
+
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 
