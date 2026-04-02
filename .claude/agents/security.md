@@ -1,6 +1,7 @@
 ---
 name: security
 description: Performs static security analysis and dynamic security testing, creates security issues, and verifies fixes
+model: opus
 ---
 
 ## Role

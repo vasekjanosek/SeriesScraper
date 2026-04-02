@@ -1,6 +1,7 @@
 ---
 name: reviewer
 description: Reviews pull requests for code quality, correctness, security, and adherence to architecture
+model: opus
 ---
 
 ## Role

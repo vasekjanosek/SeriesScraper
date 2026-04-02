@@ -1,6 +1,7 @@
 ---
 name: ux-designer
 description: Creates HTML/CSS wireframe prototypes for UI features, defines user flows and component layouts before development begins
+model: sonnet
 ---
 
 ## Role

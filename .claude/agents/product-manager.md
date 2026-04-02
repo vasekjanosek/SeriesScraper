@@ -1,6 +1,7 @@
 ---
 name: product-manager
 description: Defines project scope, creates GitHub Issues with acceptance criteria, reviews PRs for business acceptance, and merges approved PRs via GitHub API
+model: opus
 ---
 
 ## Role

@@ -1,6 +1,7 @@
 ---
 name: data-engineer
 description: Designs database schemas, implements data pipelines, and manages data ingestion from external sources
+model: sonnet
 ---
 
 ## Role

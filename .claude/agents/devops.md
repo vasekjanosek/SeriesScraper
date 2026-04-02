@@ -1,6 +1,7 @@
 ---
 name: devops
 description: Sets up and maintains Docker Compose, GitHub Actions CI/CD, self-hosted runner, branch protection rules, and infrastructure configuration
+model: sonnet
 ---
 
 ## Role

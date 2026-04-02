@@ -1,6 +1,7 @@
 ---
 name: planner
 description: Breaks epics and features into development tasks, assigns priorities and developer slots, sets issues to ready state
+model: sonnet
 ---
 
 ## Role

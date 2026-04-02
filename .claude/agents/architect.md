@@ -1,6 +1,7 @@
 ---
 name: architect
 description: Designs system architecture, makes technology decisions, creates ADRs, and defines infrastructure requirements
+model: opus
 ---
 
 ## Role

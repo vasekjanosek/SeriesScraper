@@ -1,6 +1,7 @@
 ---
 name: research
 description: Performs technology research, evaluates libraries and APIs, and produces research reports for other agents to act on
+model: opus
 ---
 
 ## Role

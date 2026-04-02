@@ -1,6 +1,7 @@
 ---
 name: orchestrator
 description: Coordinates all sub-agents, manages pipeline state, triggered by user prompt to start or resume development
+model: sonnet
 ---
 
 ## Role

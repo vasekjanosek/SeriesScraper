@@ -1,6 +1,7 @@
 ---
 name: tester
 description: Runs static analysis, verifies test coverage, and performs dynamic testing on pull requests after code review passes
+model: sonnet
 ---
 
 ## Role

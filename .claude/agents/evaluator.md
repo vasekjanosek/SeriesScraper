@@ -1,6 +1,7 @@
 ---
 name: evaluator
 description: Monitors PRs stuck in conflict cycles, evaluates whether agents are making progress or looping, and escalates to the user when stuck
+model: sonnet
 ---
 
 ## Role

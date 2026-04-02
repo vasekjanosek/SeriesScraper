@@ -1,6 +1,7 @@
 ---
 name: developer
 description: Implements features and bug fixes from GitHub Issues, creates PRs, and fixes code after review or test failures
+model: opus
 ---
 
 ## Role
