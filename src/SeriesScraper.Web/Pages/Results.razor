@@ -1,0 +1,391 @@
+@page "/results"
+@using SeriesScraper.Domain.Interfaces
+@inject IResultsService ResultsService
+
+<PageTitle>Scrape Results</PageTitle>
+
+<h3>Scrape Results</h3>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Title Search</label>
+                <input type="text" class="form-control form-control-sm" @bind="TitleSearch"
+                       @bind:event="oninput" placeholder="Search..." />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Content Type</label>
+                <select class="form-select form-select-sm" @bind="ContentTypeFilter">
+                    <option value="">All</option>
+                    <option value="Movie">Movie</option>
+                    <option value="Series">Series</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select form-select-sm" @bind="StatusFilter">
+                    <option value="">All</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Done">Done</option>
+                    <option value="Failed">Failed</option>
+                    <option value="Skipped">Skipped</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Min Quality</label>
+                <input type="number" class="form-control form-control-sm" @bind="MinQualityScore" min="0" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Min Match %</label>
+                <input type="number" class="form-control form-control-sm" @bind="MinMatchConfidencePercent"
+                       min="0" max="100" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" @onclick="ApplyFilters">Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_results is null || _results.TotalCount == 0)
+{
+    <div class="alert alert-info">No results found.</div>
+}
+else
+{
+    <!-- Results Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th role="button" @onclick='() => ToggleSort("title")'>
+                        Title @SortIndicator("title")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("mediatype")'>
+                        Type @SortIndicator("mediatype")
+                    </th>
+                    <th>IMDB Match %</th>
+                    <th>Quality</th>
+                    <th role="button" @onclick='() => ToggleSort("links")'>
+                        Links @SortIndicator("links")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("status")'>
+                        Status @SortIndicator("status")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("processedat")'>
+                        Processed @SortIndicator("processedat")
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _results.Items)
+                {
+                    <tr class="@(ExpandedItemId == item.RunItemId ? "table-active" : "")"
+                        role="button" @onclick="() => ToggleDetail(item.RunItemId)">
+                        <td>@(item.MatchedTitle ?? ExtractTitleFromUrl(item.PostUrl))</td>
+                        <td>@(item.MediaType ?? "—")</td>
+                        <td>
+                            @if (item.MatchConfidence.HasValue)
+                            {
+                                <span class="badge @ConfidenceBadgeClass(item.MatchConfidence.Value)">
+                                    @((item.MatchConfidence.Value * 100m).ToString("F0"))%
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td>@(item.QualityScore?.ToString() ?? "—")</td>
+                        <td>@item.LinkCount</td>
+                        <td><span class="badge @StatusBadgeClass(item.Status)">@item.Status</span></td>
+                        <td>@(item.ProcessedAt?.ToString("g") ?? "—")</td>
+                    </tr>
+
+                    @if (ExpandedItemId == item.RunItemId && _detail is not null)
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <!-- IMDB Details -->
+                                            <div class="col-md-4">
+                                                <h6>IMDB Details</h6>
+                                                @if (_detail.MatchedTitle is not null)
+                                                {
+                                                    <dl class="row mb-0">
+                                                        <dt class="col-sm-5">Title</dt>
+                                                        <dd class="col-sm-7">@_detail.MatchedTitle</dd>
+                                                        <dt class="col-sm-5">Year</dt>
+                                                        <dd class="col-sm-7">@(_detail.Year?.ToString() ?? "—")</dd>
+                                                        <dt class="col-sm-5">Rating</dt>
+                                                        <dd class="col-sm-7">
+                                                            @if (_detail.ImdbRating.HasValue)
+                                                            {
+                                                                <text>@_detail.ImdbRating.Value/10 (@(_detail.ImdbVoteCount?.ToString("N0") ?? "0") votes)</text>
+                                                            }
+                                                            else
+                                                            {
+                                                                <text>—</text>
+                                                            }
+                                                        </dd>
+                                                        <dt class="col-sm-5">Genres</dt>
+                                                        <dd class="col-sm-7">@(_detail.Genres ?? "—")</dd>
+                                                        @if (_detail.EpisodeCount.HasValue)
+                                                        {
+                                                            <dt class="col-sm-5">Episodes</dt>
+                                                            <dd class="col-sm-7">@_detail.EpisodeCount</dd>
+                                                            <dt class="col-sm-5">Seasons</dt>
+                                                            <dd class="col-sm-7">@(_detail.Seasons is not null ? string.Join(", ", _detail.Seasons) : "—")</dd>
+                                                        }
+                                                    </dl>
+                                                }
+                                                else
+                                                {
+                                                    <p class="text-muted">No IMDB match</p>
+                                                }
+                                            </div>
+
+                                            <!-- Links -->
+                                            <div class="col-md-8">
+                                                <h6>Extracted Links (@_detail.Links.Count)</h6>
+                                                @if (_detail.Links.Count > 0)
+                                                {
+                                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                                        <table class="table table-sm table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Type</th>
+                                                                    <th>URL</th>
+                                                                    <th>S/E</th>
+                                                                    <th>Current</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var link in _detail.Links)
+                                                                {
+                                                                    <tr class="@(!link.IsCurrent ? "text-muted" : "")">
+                                                                        <td>@link.LinkTypeName</td>
+                                                                        <td class="text-truncate" style="max-width: 400px;">
+                                                                            @link.Url
+                                                                        </td>
+                                                                        <td>
+                                                                            @if (link.ParsedSeason.HasValue || link.ParsedEpisode.HasValue)
+                                                                            {
+                                                                                <text>S@(link.ParsedSeason?.ToString("D2") ?? "--")E@(link.ParsedEpisode?.ToString("D2") ?? "--")</text>
+                                                                            }
+                                                                        </td>
+                                                                        <td>
+                                                                            @if (link.IsCurrent)
+                                                                            {
+                                                                                <span class="badge bg-success">Yes</span>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <span class="badge bg-secondary">No</span>
+                                                                            }
+                                                                        </td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <p class="text-muted">No links extracted</p>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small class="text-muted">Post URL: @_detail.PostUrl</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (_results.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(_currentPage <= 1 ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(_currentPage - 1)">&laquo;</button>
+                </li>
+                @foreach (var p in GetPageNumbers())
+                {
+                    <li class="page-item @(p == _currentPage ? "active" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(p)">@p</button>
+                    </li>
+                }
+                <li class="page-item @(_currentPage >= _results.TotalPages ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(_currentPage + 1)">&raquo;</button>
+                </li>
+            </ul>
+        </nav>
+    }
+}
+
+@code {
+    private PagedResult<ResultSummaryDto>? _results;
+    private ResultDetailDto? _detail;
+    private bool _loading = true;
+
+    // Filter state
+    private string? TitleSearch;
+    private string? ContentTypeFilter;
+    private string? StatusFilter;
+    private int? MinQualityScore;
+    private int? MinMatchConfidencePercent;
+
+    // Sort state
+    private string _sortBy = "";
+    private bool _sortDescending = true;
+
+    // Pagination
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+
+    // Expanded detail row
+    private int? ExpandedItemId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadResultsAsync();
+    }
+
+    private async Task LoadResultsAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var filter = BuildFilter();
+            _results = await ResultsService.GetResultsAsync(
+                filter, _currentPage, PageSize, _sortBy, _sortDescending);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private ResultFilterDto BuildFilter()
+    {
+        return new ResultFilterDto
+        {
+            ContentType = string.IsNullOrEmpty(ContentTypeFilter) ? null : ContentTypeFilter,
+            StatusFilter = string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter,
+            MinQualityScore = MinQualityScore,
+            MinMatchConfidence = MinMatchConfidencePercent.HasValue
+                ? MinMatchConfidencePercent.Value / 100m
+                : null,
+            TitleSearch = string.IsNullOrWhiteSpace(TitleSearch) ? null : TitleSearch
+        };
+    }
+
+    private async Task ApplyFilters()
+    {
+        _currentPage = 1;
+        ExpandedItemId = null;
+        _detail = null;
+        await LoadResultsAsync();
+    }
+
+    private async Task ToggleSort(string column)
+    {
+        if (_sortBy == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortBy = column;
+            _sortDescending = false;
+        }
+
+        _currentPage = 1;
+        await LoadResultsAsync();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (_results is null) return;
+        if (page < 1 || page > _results.TotalPages) return;
+
+        _currentPage = page;
+        ExpandedItemId = null;
+        _detail = null;
+        await LoadResultsAsync();
+    }
+
+    private async Task ToggleDetail(int runItemId)
+    {
+        if (ExpandedItemId == runItemId)
+        {
+            ExpandedItemId = null;
+            _detail = null;
+            return;
+        }
+
+        ExpandedItemId = runItemId;
+        _detail = await ResultsService.GetResultDetailAsync(runItemId);
+    }
+
+    private string SortIndicator(string column)
+    {
+        if (_sortBy != column) return "";
+        return _sortDescending ? "▼" : "▲";
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Done" => "bg-success",
+        "Failed" => "bg-danger",
+        "Processing" => "bg-warning text-dark",
+        "Pending" => "bg-info text-dark",
+        "Skipped" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string ConfidenceBadgeClass(decimal confidence) => confidence switch
+    {
+        >= 0.8m => "bg-success",
+        >= 0.5m => "bg-warning text-dark",
+        _ => "bg-danger"
+    };
+
+    private static string ExtractTitleFromUrl(string url)
+    {
+        var lastSegment = url.Split('/').LastOrDefault(s => !string.IsNullOrEmpty(s)) ?? url;
+        return Uri.UnescapeDataString(lastSegment).Replace("-", " ").Replace("_", " ");
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        if (_results is null) yield break;
+        var totalPages = _results.TotalPages;
+        var start = Math.Max(1, _currentPage - 2);
+        var end = Math.Min(totalPages, _currentPage + 2);
+
+        for (var i = start; i <= end; i++)
+            yield return i;
+    }
+}
