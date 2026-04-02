@@ -1,0 +1,286 @@
+@page "/watchlist"
+@using SeriesScraper.Domain.Enums
+@using SeriesScraper.Domain.Interfaces
+@inject IWatchlistService WatchlistService
+@inject IMediaTitleRepository MediaTitleRepository
+
+<PageTitle>Watchlist</PageTitle>
+
+<h3>Watchlist</h3>
+
+<!-- Add to Watchlist -->
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Add to Watchlist</h5>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label">Search IMDB Title</label>
+                <input type="text" class="form-control form-control-sm" @bind="_searchTerm"
+                       @bind:event="oninput" placeholder="Search by title..." />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-primary btn-sm w-100" @onclick="SearchTitles"
+                        disabled="@(string.IsNullOrWhiteSpace(_searchTerm))">
+                    Search
+                </button>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Or Manual Entry</label>
+                <input type="text" class="form-control form-control-sm" @bind="_customTitle"
+                       placeholder="Custom title..." />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-success btn-sm w-100" @onclick="AddCustomTitle"
+                        disabled="@(string.IsNullOrWhiteSpace(_customTitle))">
+                    Add Custom
+                </button>
+            </div>
+        </div>
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger mt-2 py-1">@_errorMessage</div>
+        }
+        @if (_successMessage is not null)
+        {
+            <div class="alert alert-success mt-2 py-1">@_successMessage</div>
+        }
+
+        @if (_searchResults is not null && _searchResults.Count > 0)
+        {
+            <div class="mt-2">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Year</th>
+                            <th>Type</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var title in _searchResults)
+                        {
+                            <tr>
+                                <td>@title.CanonicalTitle</td>
+                                <td>@(title.Year?.ToString() ?? "—")</td>
+                                <td>@title.Type</td>
+                                <td>
+                                    <button class="btn btn-outline-success btn-sm"
+                                            @onclick="() => AddFromSearch(title.MediaId)">
+                                        Add
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (_searchResults is not null)
+        {
+            <div class="text-muted mt-2">No titles found.</div>
+        }
+    </div>
+</div>
+
+<!-- New Matches -->
+@if (_newMatches is not null && _newMatches.Count > 0)
+{
+    <div class="alert alert-warning">
+        <strong>New matches found!</strong>
+        <ul class="mb-0 mt-1">
+            @foreach (var match in _newMatches)
+            {
+                <li>@match.CustomTitle — <strong>@match.NewMatchCount</strong> new result(s)</li>
+            }
+        </ul>
+    </div>
+}
+
+<!-- Watchlist Table -->
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_watchlist is null || _watchlist.Count == 0)
+{
+    <div class="alert alert-info">Your watchlist is empty. Add titles above to start tracking.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Year</th>
+                    <th>IMDB Rating</th>
+                    <th>Notification</th>
+                    <th>Added</th>
+                    <th>Last Match</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _watchlist)
+                {
+                    <tr class="@(item.IsActive ? "" : "text-muted")">
+                        <td>
+                            @item.CustomTitle
+                            @if (item.MediaTitleId is null)
+                            {
+                                <span class="badge bg-secondary ms-1">manual</span>
+                            }
+                        </td>
+                        <td>@(item.MediaType ?? "—")</td>
+                        <td>@(item.Year?.ToString() ?? "—")</td>
+                        <td>
+                            @if (item.ImdbRating.HasValue)
+                            {
+                                <span>@item.ImdbRating.Value.ToString("0.0") (@item.ImdbVoteCount?.ToString("N0") votes)</span>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm"
+                                    value="@item.NotificationPreference"
+                                    @onchange="e => UpdateNotification(item.WatchlistItemId, e)">
+                                @foreach (var pref in Enum.GetValues<NotificationPreference>())
+                                {
+                                    <option value="@pref">@pref</option>
+                                }
+                            </select>
+                        </td>
+                        <td>@item.AddedAt.ToString("yyyy-MM-dd")</td>
+                        <td>@(item.LastMatchedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td>
+                            <button class="btn btn-sm @(item.IsActive ? "btn-outline-warning" : "btn-outline-success")"
+                                    @onclick="() => ToggleActive(item.WatchlistItemId)">
+                                @(item.IsActive ? "Pause" : "Resume")
+                            </button>
+                        </td>
+                        <td>
+                            <button class="btn btn-outline-danger btn-sm"
+                                    @onclick="() => RemoveItem(item.WatchlistItemId)">
+                                Remove
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="mt-2">
+    <button class="btn btn-outline-info btn-sm" @onclick="CheckMatches">Check New Matches</button>
+</div>
+
+@code {
+    private IReadOnlyList<WatchlistItemDto>? _watchlist;
+    private IReadOnlyList<WatchlistMatchDto>? _newMatches;
+    private IReadOnlyList<Domain.Entities.MediaTitle>? _searchResults;
+    private string? _searchTerm;
+    private string? _customTitle;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWatchlist();
+    }
+
+    private async Task LoadWatchlist()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _successMessage = null;
+        _watchlist = await WatchlistService.GetWatchlistAsync();
+        _loading = false;
+    }
+
+    private async Task SearchTitles()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_searchTerm)) return;
+
+        _searchResults = await MediaTitleRepository.SearchByTitleAsync(
+            _searchTerm.Trim(), maxResults: 20);
+    }
+
+    private async Task AddFromSearch(int mediaTitleId)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await WatchlistService.AddToWatchlistByMediaTitleAsync(mediaTitleId);
+            _successMessage = "Added to watchlist.";
+            _searchResults = null;
+            _searchTerm = null;
+            await LoadWatchlist();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task AddCustomTitle()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_customTitle)) return;
+
+        try
+        {
+            await WatchlistService.AddToWatchlistByCustomTitleAsync(_customTitle);
+            _successMessage = "Custom title added to watchlist.";
+            _customTitle = null;
+            await LoadWatchlist();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ToggleActive(int watchlistItemId)
+    {
+        await WatchlistService.ToggleActiveAsync(watchlistItemId);
+        await LoadWatchlist();
+    }
+
+    private async Task RemoveItem(int watchlistItemId)
+    {
+        await WatchlistService.RemoveFromWatchlistAsync(watchlistItemId);
+        await LoadWatchlist();
+    }
+
+    private async Task UpdateNotification(int watchlistItemId, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<NotificationPreference>(e.Value?.ToString(), out var pref))
+        {
+            await WatchlistService.UpdateNotificationPreferenceAsync(watchlistItemId, pref);
+            await LoadWatchlist();
+        }
+    }
+
+    private async Task CheckMatches()
+    {
+        _newMatches = await WatchlistService.CheckNewMatchesAsync();
+        await LoadWatchlist();
+    }
+}
