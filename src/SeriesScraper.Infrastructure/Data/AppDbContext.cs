@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<MediaRating> MediaRatings => Set<MediaRating>();
     public DbSet<ImdbTitleDetails> ImdbTitleDetails => Set<ImdbTitleDetails>();
     public DbSet<QualityToken> QualityTokens => Set<QualityToken>();
+    public DbSet<QualityLearnedPattern> QualityLearnedPatterns => Set<QualityLearnedPattern>();
     public DbSet<LinkType> LinkTypes => Set<LinkType>();
     public DbSet<Link> Links => Set<Link>();
     public DbSet<Setting> Settings => Set<Setting>();
