@@ -14,6 +14,7 @@ public class ScrapeRunServiceTests
 {
     private readonly IScrapeRunRepository _repository;
     private readonly IScrapingJobQueue _jobQueue;
+    private readonly IScrapeOrchestrator _orchestrator;
     private readonly ILogger<ScrapeRunService> _logger;
     private readonly ScrapeRunService _sut;
 
@@ -21,8 +22,9 @@ public class ScrapeRunServiceTests
     {
         _repository = Substitute.For<IScrapeRunRepository>();
         _jobQueue = Substitute.For<IScrapingJobQueue>();
+        _orchestrator = Substitute.For<IScrapeOrchestrator>();
         _logger = Substitute.For<ILogger<ScrapeRunService>>();
-        _sut = new ScrapeRunService(_repository, _jobQueue, _logger);
+        _sut = new ScrapeRunService(_repository, _jobQueue, _orchestrator, _logger);
     }
 
     [Fact]
@@ -98,7 +100,7 @@ public class ScrapeRunServiceTests
     }
 
     [Fact]
-    public async Task ProcessJobAsync_SetsRunningThenComplete()
+    public async Task ProcessJobAsync_SetsRunningThenDelegatesToOrchestratorThenCompletes()
     {
         var job = new ScrapeJob { RunId = 1, ForumId = 1 };
 
@@ -107,6 +109,7 @@ public class ScrapeRunServiceTests
         Received.InOrder(() =>
         {
             _repository.UpdateStatusAsync(1, ScrapeRunStatus.Running, Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+            _orchestrator.ExecuteAsync(job, Arg.Any<CancellationToken>());
             _repository.UpdateStatusAsync(1, ScrapeRunStatus.Complete, Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
         });
     }

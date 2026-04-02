@@ -53,6 +53,16 @@ try
     builder.Services.AddScoped<IScrapeRunRepository, ScrapeRunRepository>();
     builder.Services.AddScoped<IForumSectionDiscoveryService, ForumSectionDiscoveryService>();
     builder.Services.AddScoped<IForumSectionRepository, ForumSectionRepository>();
+    builder.Services.AddScoped<IForumRepository, ForumRepository>();
+
+    // Scrape orchestration (#16)
+    builder.Services.AddScoped<IScrapeOrchestrator, ScrapeOrchestrator>();
+    builder.Services.AddScoped<IForumPostScraper, ForumPostScraper>();
+    builder.Services.AddScoped<IForumSearchService, ForumSearchService>();
+    builder.Services.AddScoped<ILinkExtractorService, LinkExtractorService>();
+    builder.Services.AddScoped<ILinkRepository, LinkRepository>();
+    builder.Services.AddScoped<ILinkTypeService, LinkTypeService>();
+    builder.Services.AddScoped<ILinkTypeRepository, LinkTypeRepository>();
 
     // Singleton services
     builder.Services.AddSingleton<ILanguageDetector, LinguaLanguageDetector>();
