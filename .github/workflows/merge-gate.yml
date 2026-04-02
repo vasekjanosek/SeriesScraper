@@ -1,115 +1,237 @@
-name: Merge Gate
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Actions Merge Gate Workflow
+# Triggers: When status:pm-approved label is added to a PR
+# Purpose: Verify CI passed, then execute squash merge via GitHub API
+# Error handling: 409 (conflict) → status:blocked, 422 (unprocessable) → status:blocked
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Triggers when a label is added to a pull request.
-# When the PM agent adds 'status:pm-approved', this workflow:
-# 1. Verifies all required CI checks have passed
-# 2. Signals the PM agent that it is safe to call the merge API
+name: Merge Gate
 
 on:
   pull_request:
     types: [labeled]
 
+# Minimal permissions required for merge operations
+# 'contents: write' allows pushing to main via merge
+# 'pull-requests: write' allows label manipulation and PR comments
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   merge-gate:
-    name: Verify merge conditions
-    # Only run when the pm-approved label is added
+    name: Merge Gate
+    # Only run when the status:pm-approved label is added
     if: github.event.label.name == 'status:pm-approved'
     runs-on: self-hosted
 
     steps:
-      - name: Verify all CI checks passed
+      # ─── Verify CI Passed ──────────────────────────────────────────────────
+      # Pinned to commit SHA 60a0d83039c74a4aee543508d2ffcb1c3799cdea (v7.0.1)
+      # Queries GitHub API for check runs on the PR HEAD SHA (not stale/cached)
+      # Ensures the 'CI' job has conclusion = success before allowing merge
+      - name: Verify CI checks passed
         id: check-ci
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-
-            // Get all check runs for the PR head commit
+            
+            // Query check runs for the current HEAD SHA (not a cached value)
             const { data: checkRuns } = await github.rest.checks.listForRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: pr.head.sha,
             });
-
-            // Filter out this workflow itself and find any failures
-            const failed = checkRuns.check_runs.filter(run =>
-              run.name !== 'Verify merge conditions' &&
-              run.status === 'completed' &&
-              run.conclusion !== 'success' &&
-              run.conclusion !== 'skipped'
-            );
-
-            const pending = checkRuns.check_runs.filter(run =>
-              run.name !== 'Verify merge conditions' &&
-              run.status !== 'completed'
-            );
-
-            if (pending.length > 0) {
-              const names = pending.map(r => r.name).join(', ');
-              core.setFailed(`Checks still pending: ${names}`);
-              return;
+            
+            // Find the CI job specifically (stable name from ci.yml)
+            const ciJob = checkRuns.check_runs.find(run => run.name === 'CI');
+            
+            if (!ciJob) {
+              core.setFailed('CI job not found in check runs');
+              return false;
             }
-
-            if (failed.length > 0) {
-              const names = failed.map(r => `${r.name} (${r.conclusion})`).join(', ');
-              core.setFailed(`Failing checks prevent merge: ${names}`);
-              return;
+            
+            if (ciJob.status !== 'completed') {
+              core.setFailed(`CI job is still ${ciJob.status}`);
+              return false;
             }
+            
+            if (ciJob.conclusion !== 'success') {
+              core.setFailed(`CI job conclusion: ${ciJob.conclusion}`);
+              return false;
+            }
+            
+            console.log('✓ CI job passed');
+            return true;
 
-            console.log('All CI checks passed. Merge gate open.');
-
-      - name: Post merge-ready comment
-        if: success()
-        uses: actions/github-script@v7
+      # ─── Execute Squash Merge ──────────────────────────────────────────────
+      # Calls GitHub merge API with squash strategy
+      # Commit title format: "feat(#issue-number): issue-title"
+      # Errors are handled in the next step with specific logic for 409/422
+      - name: Execute merge
+        id: merge
+        if: steps.check-ci.outputs.result == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        continue-on-error: true
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
+            
+            // Extract issue number from PR title (format: "feat(#39): ..." or "feat: ...")
+            const issueMatch = pr.title.match(/#(\d+)/);
+            const issueNumber = issueMatch ? issueMatch[1] : '';
+            
+            // Construct commit title
+            const commitTitle = issueNumber 
+              ? `feat(#${issueNumber}): ${pr.title.replace(/#\d+:\s*/, '')}`
+              : pr.title;
+            
+            try {
+              const { data: merge } = await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+                commit_title: commitTitle,
+              });
+              
+              console.log(`✓ PR #${pr.number} merged: ${merge.sha}`);
+              core.setOutput('merged', 'true');
+              core.setOutput('sha', merge.sha);
+              return true;
+              
+            } catch (error) {
+              // Store error details for the error handler step
+              core.setOutput('merged', 'false');
+              core.setOutput('error_status', error.status);
+              core.setOutput('error_message', error.message);
+              core.setOutput('error_body', JSON.stringify(error.response?.data || {}));
+              
+              console.error(`Merge failed (${error.status}): ${error.message}`);
+              throw error;
+            }
 
+      # ─── Handle Merge Errors ───────────────────────────────────────────────
+      # 409 Conflict: Merge conflict with base branch → status:blocked, agent:developer
+      # 422 Unprocessable: Invalid merge state → status:blocked, agent:developer
+      # Other errors: Log and comment, but don't modify labels
+      - name: Handle merge errors
+        if: steps.merge.outputs.merged == 'false'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const errorStatus = '${{ steps.merge.outputs.error_status }}';
+            const errorMessage = '${{ steps.merge.outputs.error_message }}';
+            const errorBody = '${{ steps.merge.outputs.error_body }}';
+            
+            let commentBody = '';
+            let shouldBlock = false;
+            
+            if (errorStatus === '409') {
+              // Merge conflict detected
+              commentBody = [
+                '## ⚠️ Merge Conflict Detected',
+                '',
+                'This PR cannot be merged due to conflicts with the base branch.',
+                '',
+                '**Action Required:**',
+                '- Developer: Resolve conflicts by rebasing or merging `main` into this branch',
+                '- After conflicts are resolved, CI will re-run automatically',
+                '- PM: Re-add `status:pm-approved` label after CI passes',
+                '',
+                `**Error:** ${errorMessage}`,
+              ].join('\n');
+              shouldBlock = true;
+              
+            } else if (errorStatus === '422') {
+              // Unprocessable merge (PR closed, base deleted, etc.)
+              commentBody = [
+                '## ⚠️ Merge Failed: Unprocessable',
+                '',
+                'The merge operation could not be completed.',
+                '',
+                '**Possible causes:**',
+                '- PR is already closed or merged',
+                '- Base branch has been deleted',
+                '- GitHub API rate limit exceeded',
+                '',
+                `**Error:** ${errorMessage}`,
+                '',
+                `**Details:** \`\`\`json\n${errorBody}\n\`\`\``,
+              ].join('\n');
+              shouldBlock = true;
+              
+            } else {
+              // Unexpected error
+              commentBody = [
+                '## ⚠️ Merge Failed: Unexpected Error',
+                '',
+                `**Status Code:** ${errorStatus}`,
+                `**Message:** ${errorMessage}`,
+                '',
+                `**Details:** \`\`\`json\n${errorBody}\n\`\`\``,
+                '',
+                '@vasekjanosek — Manual intervention required',
+              ].join('\n');
+            }
+            
+            // Post error comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
-              body: [
-                '## Merge Gate: All conditions met',
-                '',
-                '- CI checks: passed',
-                '- PM approval: `status:pm-approved` label present',
-                '',
-                'PM Agent: safe to call merge API.',
-              ].join('\n'),
+              body: commentBody,
             });
-
-      - name: Post merge-blocked comment
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pr = context.payload.pull_request;
-
-            // Remove the pm-approved label since conditions are not met
-            try {
-              await github.rest.issues.removeLabel({
+            
+            if (shouldBlock) {
+              // Remove status:pm-approved, add status:blocked and agent:developer
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: 'status:pm-approved',
+                });
+              } catch (e) {
+                console.log('Could not remove status:pm-approved:', e.message);
+              }
+              
+              await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                name: 'status:pm-approved',
+                labels: ['status:blocked', 'agent:developer'],
               });
-            } catch (e) {
-              console.log('Could not remove label:', e.message);
+              
+              console.log('PR blocked due to merge error');
             }
+            
+            core.setFailed(`Merge failed with status ${errorStatus}`);
 
+      # ─── Post Success Comment ──────────────────────────────────────────────
+      - name: Post merge success comment
+        if: steps.merge.outputs.merged == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const sha = '${{ steps.merge.outputs.sha }}';
+            
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
               body: [
-                '## Merge Gate: Blocked',
+                '## ✓ Merge Successful',
                 '',
-                'CI checks have not all passed. The `status:pm-approved` label has been removed.',
+                `Commit: ${sha}`,
                 '',
-                'PM Agent: do not merge until CI passes and label is re-added.',
+                'Branch will be automatically deleted per repository settings.',
               ].join('\n'),
             });
