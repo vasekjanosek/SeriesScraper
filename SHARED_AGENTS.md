@@ -277,6 +277,5 @@ IMDB dataset refresh interval is user-configurable (stored in DB), default: 24 h
 
 ## GitHub Copilot Note
 
-GitHub Copilot (VS Code extension) cannot execute agents or run automated pipelines.
-It reads `.github/copilot-instructions.md` as passive context only.
-Automation is handled exclusively by Claude Code and Codex CLI.
+GitHub Copilot CLI reads `.github/copilot-instructions.md` and can execute agents
+and run automated pipelines, the same as Claude Code and Codex CLI.

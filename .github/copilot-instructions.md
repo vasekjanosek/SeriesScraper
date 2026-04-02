@@ -1,11 +1,9 @@
 # GitHub Copilot — SeriesScraper
 
-This file provides GitHub Copilot with passive project context for code suggestions.
+This file provides GitHub Copilot CLI with project context and agent instructions.
 
-> **Note:** Copilot cannot run automated pipelines. Automation is handled by
-> Claude Code and Codex CLI. This file is for passive context only.
->
 > Full agent instructions are in [SHARED_AGENTS.md](../SHARED_AGENTS.md).
+> Read SHARED_AGENTS.md before taking any action in this project.
 > If you modify SHARED_AGENTS.md, you must also update CLAUDE.md and AGENTS.md.
 
 ---
