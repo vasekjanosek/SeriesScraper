@@ -180,7 +180,9 @@ public class ScrapeRunRepository : IScrapeRunRepository
             "items" => sortDescending ? query.OrderByDescending(r => r.TotalItems) : query.OrderBy(r => r.TotalItems),
             "links" => sortDescending ? query.OrderByDescending(r => r.LinkCount) : query.OrderBy(r => r.LinkCount),
             "matches" => sortDescending ? query.OrderByDescending(r => r.MatchCount) : query.OrderBy(r => r.MatchCount),
-            "duration" => sortDescending ? query.OrderByDescending(r => r.CompletedAt) : query.OrderBy(r => r.CompletedAt),
+            "duration" => sortDescending
+                ? query.OrderByDescending(r => r.CompletedAt != null ? r.CompletedAt - r.StartedAt : (TimeSpan?)null)
+                : query.OrderBy(r => r.CompletedAt != null ? r.CompletedAt - r.StartedAt : (TimeSpan?)null),
             "status" => sortDescending ? query.OrderByDescending(r => r.Status) : query.OrderBy(r => r.Status),
             _ => sortDescending ? query.OrderByDescending(r => r.StartedAt) : query.OrderBy(r => r.StartedAt)
         };

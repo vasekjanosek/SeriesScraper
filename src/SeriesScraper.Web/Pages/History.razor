@@ -12,14 +12,6 @@
     <div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-2">
-                <label class="form-label">Date From</label>
-                <input type="date" class="form-control form-control-sm" @bind="DateFrom" />
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Date To</label>
-                <input type="date" class="form-control form-control-sm" @bind="DateTo" />
-            </div>
-            <div class="col-md-2">
                 <label class="form-label">Status</label>
                 <select class="form-select form-select-sm" @bind="StatusFilter">
                     <option value="">All</option>
@@ -30,6 +22,9 @@
             </div>
             <div class="col-md-2">
                 <button class="btn btn-primary btn-sm w-100" @onclick="ApplyFilters">Apply</button>
+            </div>
+            <div class="col-md-8 text-muted small align-self-center">
+                Additional filtering (date range, forum) will be added in a future version.
             </div>
         </div>
     </div>
@@ -127,8 +122,6 @@ else
     private bool _loading = true;
 
     // Filter state
-    private DateTime? DateFrom;
-    private DateTime? DateTo;
     private string? StatusFilter;
 
     // Sort state
@@ -137,7 +130,7 @@ else
 
     // Pagination
     private int _currentPage = 1;
-    private const int PageSize = 20;
+    private const int PageSize = 50;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,8 +146,6 @@ else
         {
             var filter = new RunHistoryFilterDto
             {
-                DateFrom = DateFrom,
-                DateTo = DateTo?.AddDays(1), // include the entire end date
                 StatusFilter = string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter
             };
 
