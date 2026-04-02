@@ -24,6 +24,10 @@ public class AppDbContext : DbContext
     public DbSet<ScrapeRun> ScrapeRuns => Set<ScrapeRun>();
     public DbSet<DataSource> DataSources => Set<DataSource>();
     public DbSet<MediaTitle> MediaTitles => Set<MediaTitle>();
+    public DbSet<MediaTitleAlias> MediaTitleAliases => Set<MediaTitleAlias>();
+    public DbSet<MediaEpisode> MediaEpisodes => Set<MediaEpisode>();
+    public DbSet<MediaRating> MediaRatings => Set<MediaRating>();
+    public DbSet<ImdbTitleDetails> ImdbTitleDetails => Set<ImdbTitleDetails>();
     public DbSet<QualityToken> QualityTokens => Set<QualityToken>();
     public DbSet<LinkType> LinkTypes => Set<LinkType>();
     public DbSet<Link> Links => Set<Link>();
