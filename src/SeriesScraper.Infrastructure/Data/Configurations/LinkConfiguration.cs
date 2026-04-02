@@ -37,6 +37,6 @@ public class LinkConfiguration : IEntityTypeConfiguration<Link>
             .OnDelete(DeleteBehavior.Cascade);
         
         // NOTE: Partial index IX_Links_IsCurrentPartial created via raw SQL in migration Up() per AC#1
-        // CREATE INDEX IX_Links_IsCurrentPartial ON links (post_id, link_id) WHERE is_current = true;
+        // CREATE INDEX IX_Links_IsCurrentPartial ON links (link_id) WHERE is_current = true;
     }
 }

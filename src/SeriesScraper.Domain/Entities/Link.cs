@@ -7,7 +7,6 @@ namespace SeriesScraper.Domain.Entities;
 public class Link
 {
     public int LinkId { get; set; }
-    public int PostId { get; set; }
     public required string Url { get; set; }
     public int LinkTypeId { get; set; }
     
