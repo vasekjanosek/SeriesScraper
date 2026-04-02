@@ -34,6 +34,11 @@ public class AppDbContext : DbContext
     public DbSet<LinkType> LinkTypes => Set<LinkType>();
     public DbSet<Link> Links => Set<Link>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<DataSourceImportRun> DataSourceImportRuns => Set<DataSourceImportRun>();
+    public DbSet<ImdbTitleBasicsStaging> ImdbTitleBasicsStaging => Set<ImdbTitleBasicsStaging>();
+    public DbSet<ImdbTitleAkasStaging> ImdbTitleAkasStaging => Set<ImdbTitleAkasStaging>();
+    public DbSet<ImdbTitleEpisodeStaging> ImdbTitleEpisodeStaging => Set<ImdbTitleEpisodeStaging>();
+    public DbSet<ImdbTitleRatingsStaging> ImdbTitleRatingsStaging => Set<ImdbTitleRatingsStaging>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
