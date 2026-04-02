@@ -1,0 +1,265 @@
+/* Results Page Specific Styles */
+
+.results-container {
+  padding: 2rem 0;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h2 {
+  margin: 0 0 1rem 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.run-metadata {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.metadata-item {
+  white-space: nowrap;
+}
+
+/* Post Group Cards */
+.post-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+
+.post-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Watchlist match - green left border */
+.post-card.watchlist-match {
+  border-left: 5px solid #28a745;
+}
+
+.card-border-left {
+  /* Visual indicator for watchlist matches */
+  display: none;
+}
+
+/* Unmatched posts - greyed out style */
+.post-card.unmatched {
+  background: #f8f9fa;
+  border-color: #ccc;
+  opacity: 0.7;
+}
+
+.post-card.unmatched .post-title a {
+  color: #6c757d;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.post-title {
+  margin: 0;
+  font-size: 1.25rem;
+  flex: 1;
+}
+
+.post-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.post-link:hover {
+  text-decoration: underline;
+}
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: 1rem;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-watchlist {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.badge-matched {
+  background: #cce5ff;
+  color: #004085;
+  border: 1px solid #b8daff;
+}
+
+.badge-partial {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.badge-unmatched {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+.post-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-bottom: 0.75rem;
+}
+
+.metadata-label {
+  font-weight: 600;
+  color: #495057;
+}
+
+.separator {
+  color: #dee2e6;
+}
+
+.quality-rank {
+  font-weight: 700;
+  color: #28a745;
+}
+
+.imdb-match {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.imdb-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.imdb-link:hover {
+  text-decoration: underline;
+}
+
+.partial-note {
+  color: #856404;
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-left: 0.5rem;
+}
+
+.no-match-message {
+  color: #6c757d;
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+
+.links-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.link-item {
+  padding: 0.4rem 0.8rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #495057;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.link-item:hover {
+  background: #e9ecef;
+}
+
+.link-more {
+  padding: 0.4rem 0.8rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Loading State */
+.loading-state {
+  padding: 2rem 0;
+}
+
+.skeleton-card {
+  height: 200px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 2rem;
+}
+
+/* Error State */
+.error-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.error-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.error-state h3 {
+  margin: 0 0 1rem 0;
+  color: #dc3545;
+}
+
+.error-message {
+  color: #6c757d;
+  margin-bottom: 2rem;
+}

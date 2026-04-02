@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>History — Wireframe</title>
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- [SECTION: Application Shell] -->
+  <header class="app-header">
+    <div class="container">
+      <h1 class="app-title">SeriesScraper</h1>
+      <nav class="main-nav">
+        <a href="#" class="nav-link">Search</a>
+        <a href="#" class="nav-link">Results</a>
+        <a href="#" class="nav-link active">History</a>
+        <a href="#" class="nav-link">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- [SECTION: Page Content] -->
+  <main class="container main-content">
+    
+    <div class="history-container">
+      
+      <div class="page-header">
+        <h2>Scrape Run History</h2>
+        <!-- TODO: Filter note — filtering explicitly deferred to future version -->
+        <p class="filter-note">Filtering will be added in a future version</p>
+      </div>
+
+      <!-- [STATE: Loading] Hidden when data loaded -->
+      <div class="loading-state" style="display:none;">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+
+      <!-- [STATE: Success with results] -->
+      <div class="history-table-container">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Started</th>
+              <th>Forum</th>
+              <th>Items</th>
+              <th>Status</th>
+              <th>Results</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <!-- Run: Complete -->
+            <!-- TODO: Row is clickable, navigates to /runs/{runId}/results -->
+            <tr class="run-row clickable" onclick="location.href='/runs/1/results'">
+              <td>2026-04-02 14:30</td>
+              <td>Example Forum Alpha</td>
+              <td>25</td>
+              <td><span class="status-badge status-complete">Complete</span></td>
+              <td>
+                <!-- TODO: No "Stale" badge = current results (is_current = true) -->
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+            <!-- Run: Partial -->
+            <tr class="run-row clickable" onclick="location.href='/runs/2/results'">
+              <td>2026-04-01 18:15</td>
+              <td>Example Forum Beta</td>
+              <td>12 / 30</td>
+              <td><span class="status-badge status-partial">Partial</span></td>
+              <td>
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+            <!-- Run: Complete with Stale badge -->
+            <!-- TODO: Stale badge indicates is_current = false on linked Links -->
+            <tr class="run-row clickable stale" onclick="location.href='/runs/3/results'">
+              <td>2026-03-30 10:00</td>
+              <td>Example Forum Alpha</td>
+              <td>18</td>
+              <td>
+                <span class="status-badge status-complete">Complete</span>
+                <span class="stale-badge">Stale</span>
+              </td>
+              <td>
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+            <!-- Run: Failed -->
+            <tr class="run-row clickable" onclick="location.href='/runs/4/results'">
+              <td>2026-03-28 22:45</td>
+              <td>Example Forum Gamma</td>
+              <td>0 / 5</td>
+              <td><span class="status-badge status-failed">Failed</span></td>
+              <td>
+                <span class="no-results">—</span>
+              </td>
+            </tr>
+
+            <!-- Run: Complete -->
+            <tr class="run-row clickable" onclick="location.href='/runs/5/results'">
+              <td>2026-03-25 16:20</td>
+              <td>Example Forum Beta</td>
+              <td>42</td>
+              <td><span class="status-badge status-complete">Complete</span></td>
+              <td>
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+            <!-- Run: Complete with Stale badge -->
+            <tr class="run-row clickable stale" onclick="location.href='/runs/6/results'">
+              <td>2026-03-20 09:30</td>
+              <td>Example Forum Alpha</td>
+              <td>33</td>
+              <td>
+                <span class="status-badge status-complete">Complete</span>
+                <span class="stale-badge">Stale</span>
+              </td>
+              <td>
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+            <!-- More runs... -->
+            <tr class="run-row clickable" onclick="location.href='/runs/7/results'">
+              <td>2026-03-15 12:00</td>
+              <td>Very Long Forum Name That Should Be Truncate...</td>
+              <td>8</td>
+              <td><span class="status-badge status-complete">Complete</span></td>
+              <td>
+                <span class="results-link">View Results →</span>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- [COMPONENT: Pagination] -->
+      <!-- TODO: Pagination appears when result count exceeds 50 rows -->
+      <!-- TODO: Page size is NOT user-configurable in v1 (fixed at 50) -->
+      <div class="pagination">
+        <button class="btn btn-secondary" disabled>← Previous</button>
+        <div class="page-numbers">
+          <span class="page-number active">1</span>
+          <span class="page-number">2</span>
+          <span class="page-number">3</span>
+          <span class="page-separator">...</span>
+          <span class="page-number">12</span>
+        </div>
+        <button class="btn btn-secondary">Next →</button>
+      </div>
+
+    </div>
+
+    <!-- [STATE: Empty State] Displayed when zero runs in history -->
+    <div class="empty-state" style="display:none;">
+      <div class="empty-icon">📜</div>
+      <h3>No scrape runs yet</h3>
+      <p>Your scrape run history will appear here after you run your first search.</p>
+      <!-- TODO: Button redirects to /search -->
+      <a href="/search" class="btn btn-primary">Go to Search</a>
+    </div>
+
+  </main>
+
+  <!-- [SECTION: Footer] -->
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; 2026 SeriesScraper • <a href="/about">About</a> • <a href="/settings">Settings</a></p>
+      <!-- NOTE: Result retention policy configurable in Global Settings (#36) -->
+      <!-- NOTE: EF Core global query filter strategy for is_current decided in #38 -->
+    </div>
+  </footer>
+
+</body>
+</html>

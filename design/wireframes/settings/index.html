@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Wireframe</title>
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- [SECTION: Application Shell] -->
+  <header class="app-header">
+    <div class="container">
+      <h1 class="app-title">SeriesScraper</h1>
+      <nav class="main-nav">
+        <a href="#" class="nav-link">Search</a>
+        <a href="#" class="nav-link">Results</a>
+        <a href="#" class="nav-link">History</a>
+        <a href="#" class="nav-link active">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- [SECTION: Page Content] -->
+  <main class="container main-content">
+    
+    <div class="settings-container">
+      
+      <div class="page-header">
+        <h2>Settings</h2>
+      </div>
+
+      <!-- [COMPONENT: Sub-navigation Tabs] -->
+      <!-- TODO: Each tab loads its content without full page navigation -->
+      <div class="tabs-container">
+        <div class="tabs-nav">
+          <button class="tab-button active" data-tab="global">Global</button>
+          <button class="tab-button" data-tab="link-types">Link Types</button>
+          <button class="tab-button" data-tab="forums">Forums</button>
+        </div>
+
+        <!-- [TAB CONTENT: Global Settings] -->
+        <!-- TODO: All settings stored in DB Settings key-value table, NOT in appsettings.json -->
+        <!-- TODO: On first launch (empty Settings table), defaults seeded via EF Core migration -->
+        <div class="tab-content active" id="global-tab">
+          
+          <div class="settings-form">
+            
+            <div class="form-section">
+              <h3>IMDB Configuration</h3>
+              
+              <div class="form-group">
+                <label for="imdb-refresh-interval">IMDB Refresh Interval (hours)</label>
+                <input 
+                  type="number" 
+                  id="imdb-refresh-interval" 
+                  class="form-control" 
+                  value="24" 
+                  min="1" 
+                  max="168"
+                  placeholder="Default: 24"
+                />
+                <small class="form-text">How often to refresh IMDB dataset (default: 24 hours)</small>
+              </div>
+
+              <!-- [COMPONENT: IMDB Dataset Status Row] READ-ONLY -->
+              <!-- TODO: Issue #34 — this status row shows dataset import info -->
+              <div class="status-row">
+                <div class="status-label">IMDB Dataset Status:</div>
+                <div class="status-details">
+                  <div class="status-item">
+                    <strong>Last Download:</strong> 2026-04-01 08:00
+                  </div>
+                  <div class="status-item">
+                    <strong>Rows Imported:</strong> 8,547,321
+                  </div>
+                  <div class="status-item">
+                    <strong>Next Scheduled Refresh:</strong> 2026-04-02 08:00
+                  </div>
+                </div>
+                <!-- TODO: Button triggers immediate import job via IScrapingJobQueue -->
+                <button class="btn btn-secondary btn-sm">Refresh Now</button>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3>Forum Configuration</h3>
+              
+              <div class="form-group">
+                <label for="forum-refresh-interval">Forum Structure Refresh Interval (hours)</label>
+                <input 
+                  type="number" 
+                  id="forum-refresh-interval" 
+                  class="form-control" 
+                  value="24" 
+                  min="1" 
+                  max="168"
+                  placeholder="Default: 24"
+                />
+                <small class="form-text">How often to refresh forum structure (categories, sections) — default: 24 hours</small>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3>Scraping Performance</h3>
+              
+              <div class="form-group">
+                <label for="max-threads">Max Concurrent Scrape Threads</label>
+                <input 
+                  type="number" 
+                  id="max-threads" 
+                  class="form-control" 
+                  value="1" 
+                  min="1" 
+                  max="10"
+                  placeholder="Default: 1"
+                />
+                <small class="form-text">Number of parallel scraping operations (default: 1, recommended: 1-3)</small>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3>Quality Pattern Configuration</h3>
+              
+              <div class="form-group">
+                <label for="quality-pruning-threshold">Quality Pattern Pruning Threshold (hit count)</label>
+                <input 
+                  type="number" 
+                  id="quality-pruning-threshold" 
+                  class="form-control" 
+                  value="5" 
+                  min="1"
+                  placeholder="Default: 5"
+                />
+                <small class="form-text">Patterns with hit_count below this value are candidates for pruning (default: 5)</small>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3>Result Retention</h3>
+              
+              <div class="form-group">
+                <label for="retention-days">Result Retention (days)</label>
+                <input 
+                  type="number" 
+                  id="retention-days" 
+                  class="form-control" 
+                  value="0" 
+                  min="0"
+                  placeholder="0 = retain all"
+                />
+                <small class="form-text">How many days to retain scrape run results (0 = retain all, null = retain all)</small>
+                <!-- NOTE: EF Core global query filter strategy for is_current decided in #38 -->
+              </div>
+            </div>
+
+            <!-- [COMPONENT: Form Actions] -->
+            <!-- TODO: Save button persists changes to DB Settings table -->
+            <!-- TODO: Changes are NOT applied until Save is clicked -->
+            <!-- TODO: Confirmation message shown after successful save -->
+            <div class="form-actions">
+              <button class="btn btn-primary">Save Settings</button>
+              <button class="btn btn-secondary">Reset to Defaults</button>
+            </div>
+
+            <!-- [STATE: Confirmation Message] -->
+            <div class="confirmation-message" style="display:none;">
+              ✓ Settings saved successfully
+            </div>
+
+            <!-- [STATE: Validation Error] -->
+            <div class="error-message" style="display:none;">
+              ⚠️ Please fix validation errors before saving
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- [TAB CONTENT: Link Types] -->
+        <!-- TODO: Renders link type registry management UI from #28 within tab panel -->
+        <div class="tab-content" id="link-types-tab" style="display:none;">
+          <div class="placeholder-content">
+            <p><strong>Link Types Management UI</strong></p>
+            <p>This tab will render the link type registry management UI from issue #28.</p>
+            <p>Features:</p>
+            <ul>
+              <li>Add/edit/delete link type patterns</li>
+              <li>Define regex patterns for each link type</li>
+              <li>Set quality scores and priorities</li>
+              <li>Test patterns against sample links</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- [TAB CONTENT: Forums] -->
+        <!-- TODO: Renders forum CRUD UI from #9 within tab panel -->
+        <div class="tab-content" id="forums-tab" style="display:none;">
+          <div class="placeholder-content">
+            <p><strong>Forums Management UI</strong></p>
+            <p>This tab will render the forum CRUD UI from issue #9.</p>
+            <p>Features:</p>
+            <ul>
+              <li>Add/edit/delete forum configurations</li>
+              <li>Set forum URLs and authentication credentials</li>
+              <li>Configure forum-specific scraping rules</li>
+              <li>Test forum connectivity</li>
+            </ul>
+            <!-- NOTE: Issue #34 — if no forums configured, search page shows onboarding prompt -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- [SECTION: Footer] -->
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; 2026 SeriesScraper • <a href="/about">About</a> • <a href="/settings">Settings</a></p>
+    </div>
+  </footer>
+
+  <!-- [JAVASCRIPT: Tab Switching Logic] -->
+  <script>
+    // TODO: Tab switching without full page navigation
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const tabName = this.getAttribute('data-tab');
+        
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.style.display = 'none';
+          content.classList.remove('active');
+        });
+        
+        // Remove active class from all buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        document.getElementById(tabName + '-tab').style.display = 'block';
+        document.getElementById(tabName + '-tab').classList.add('active');
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+      });
+    });
+  </script>
+
+</body>
+</html>

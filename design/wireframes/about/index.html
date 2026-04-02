@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Wireframe</title>
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- [SECTION: Application Shell] -->
+  <header class="app-header">
+    <div class="container">
+      <h1 class="app-title">SeriesScraper</h1>
+      <nav class="main-nav">
+        <a href="#" class="nav-link">Search</a>
+        <a href="#" class="nav-link">Results</a>
+        <a href="#" class="nav-link">History</a>
+        <a href="#" class="nav-link">Settings</a>
+        <a href="#" class="nav-link active">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- [SECTION: Page Content] -->
+  <main class="container main-content">
+    
+    <div class="about-container">
+      
+      <div class="page-header">
+        <h2>About SeriesScraper</h2>
+      </div>
+
+      <!-- [SECTION: Application Information] -->
+      <div class="info-card">
+        <h3>Application Information</h3>
+        <div class="info-grid">
+          
+          <div class="info-item">
+            <span class="info-label">Version:</span>
+            <!-- TODO: Read from AssemblyInformationalVersion or equivalent -->
+            <span class="info-value">1.0.0-alpha.1</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Build Date:</span>
+            <span class="info-value">2026-04-01</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Environment:</span>
+            <span class="info-value">Development</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- [SECTION: IMDB Dataset Status] -->
+      <!-- TODO: Read from DataSourceImportRuns table (dependency: #22) -->
+      <div class="info-card">
+        <h3>IMDB Dataset Status</h3>
+        <div class="info-grid">
+          
+          <div class="info-item">
+            <span class="info-label">Last Import Date:</span>
+            <span class="info-value">2026-04-01 08:00</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Rows Imported:</span>
+            <span class="info-value">8,547,321</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Dataset Version:</span>
+            <span class="info-value">2026-03-31</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Next Scheduled Refresh:</span>
+            <span class="info-value">2026-04-02 08:00</span>
+          </div>
+
+        </div>
+
+        <div class="info-actions">
+          <a href="/settings" class="btn btn-secondary btn-sm">Configure Refresh Schedule</a>
+        </div>
+
+        <!-- [STATE: First Run — No Import Yet] -->
+        <div class="no-import-warning" style="display:none;">
+          <span class="warning-icon">⚠️</span>
+          <span class="warning-text">IMDB dataset has not been imported yet. The first import will run automatically on application startup.</span>
+        </div>
+
+        <!-- [STATE: Stale Import Warning] -->
+        <div class="stale-import-warning" style="display:none;">
+          <span class="warning-icon">⚠️</span>
+          <span class="warning-text">IMDB dataset is out of date (last import: 90+ days ago). Consider refreshing from Settings.</span>
+        </div>
+      </div>
+
+      <!-- [SECTION: Database Connection Status] -->
+      <div class="info-card">
+        <h3>Database Connection Status</h3>
+        
+        <!-- [STATE: Default — Connection Unknown] -->
+        <div class="connection-status" id="connection-status">
+          <div class="status-indicator status-unknown">
+            <span class="status-dot">●</span>
+            <span class="status-text">PostgreSQL</span>
+            <span class="status-label">Not tested</span>
+          </div>
+          
+          <div class="info-actions">
+            <!-- TODO: Button sends reachability check (simple SELECT 1, no raw SQL exposed) -->
+            <button class="btn btn-secondary btn-sm" id="check-connection-btn">Check Connection</button>
+          </div>
+        </div>
+
+        <!-- [STATE: Connection Test Running] -->
+        <div class="connection-status" id="connection-testing" style="display:none;">
+          <div class="status-indicator status-testing">
+            <span class="status-dot spinning">●</span>
+            <span class="status-text">PostgreSQL</span>
+            <span class="status-label">Testing connection...</span>
+          </div>
+        </div>
+
+        <!-- [STATE: Connection Success] -->
+        <div class="connection-status" id="connection-success" style="display:none;">
+          <div class="status-indicator status-connected">
+            <span class="status-dot">✓</span>
+            <span class="status-text">PostgreSQL</span>
+            <span class="status-label">Connected</span>
+          </div>
+          <div class="connection-details">
+            <small>Server: localhost:5432 • Database: seriesscraper</small>
+          </div>
+        </div>
+
+        <!-- [STATE: Connection Failed] -->
+        <div class="connection-status" id="connection-failed" style="display:none;">
+          <div class="status-indicator status-disconnected">
+            <span class="status-dot">✗</span>
+            <span class="status-text">PostgreSQL</span>
+            <span class="status-label">Connection failed</span>
+          </div>
+          <div class="connection-error">
+            <!-- TODO: Show hint, not full error details or stack trace -->
+            <small>Unable to connect to database. Check your configuration.</small>
+          </div>
+          <div class="info-actions">
+            <button class="btn btn-secondary btn-sm">Retry</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- [SECTION: License & Attribution] -->
+      <div class="info-card">
+        <h3>License & Attribution</h3>
+        <div class="license-content">
+          <p>
+            <strong>SeriesScraper</strong> — Private web application for scraping and matching forum content against IMDB datasets.
+          </p>
+          <p>
+            <strong>IMDB Datasets:</strong> Non-commercial use only. Data provided by
+            <a href="https://www.imdb.com" target="_blank" rel="noopener">IMDb.com</a>.
+          </p>
+          <p>
+            For more information about IMDB's dataset licensing, visit
+            <a href="https://developer.imdb.com/non-commercial-datasets/" target="_blank" rel="noopener">IMDb Non-Commercial Datasets</a>.
+          </p>
+          <p class="license-note">
+            This application is intended for private, non-commercial use only.
+          </p>
+        </div>
+      </div>
+
+      <!-- [SECTION: Technology Stack] -->
+      <div class="info-card">
+        <h3>Technology Stack</h3>
+        <ul class="tech-stack-list">
+          <li><strong>Framework:</strong> .NET 8 with Blazor Server</li>
+          <li><strong>Database:</strong> PostgreSQL 16</li>
+          <li><strong>ORM:</strong> Entity Framework Core</li>
+          <li><strong>UI Components:</strong> MudBlazor</li>
+          <li><strong>Testing:</strong> xUnit</li>
+          <li><strong>Containerization:</strong> Docker + Docker Compose</li>
+          <li><strong>CI/CD:</strong> GitHub Actions (self-hosted runner)</li>
+        </ul>
+      </div>
+
+      <!-- [SECTION: Repository Link] -->
+      <div class="info-card">
+        <h3>Source Code</h3>
+        <p>
+          This project is hosted on GitHub:
+          <a href="https://github.com/vasekjanosek/SeriesScraper" target="_blank" rel="noopener">
+            https://github.com/vasekjanosek/SeriesScraper
+          </a>
+        </p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- [SECTION: Footer] -->
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; 2026 SeriesScraper • <a href="/about">About</a> • <a href="/settings">Settings</a></p>
+      <!-- TODO: App version also displayed here in footer -->
+      <p class="version-footer">Version 1.0.0-alpha.1</p>
+    </div>
+  </footer>
+
+  <!-- [JAVASCRIPT: Connection Test] -->
+  <script>
+    // TODO: Simple reachability check — SELECT 1 or equivalent, no raw SQL exposed to user
+    document.getElementById('check-connection-btn')?.addEventListener('click', function() {
+      // Hide default state
+      document.getElementById('connection-status').style.display = 'none';
+      // Show testing state
+      document.getElementById('connection-testing').style.display = 'block';
+      
+      // Simulate connection test (replace with actual backend call)
+      setTimeout(() => {
+        // Hide testing state
+        document.getElementById('connection-testing').style.display = 'none';
+        
+        // Show success state (or failed state based on result)
+        const success = Math.random() > 0.2; // 80% success rate for demo
+        if (success) {
+          document.getElementById('connection-success').style.display = 'block';
+        } else {
+          document.getElementById('connection-failed').style.display = 'block';
+        }
+      }, 1500);
+    });
+  </script>
+
+</body>
+</html>

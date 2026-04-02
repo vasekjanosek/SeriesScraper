@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results Page — Wireframe</title>
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- [SECTION: Application Shell] -->
+  <header class="app-header">
+    <div class="container">
+      <h1 class="app-title">SeriesScraper</h1>
+      <nav class="main-nav">
+        <a href="#" class="nav-link">Search</a>
+        <a href="#" class="nav-link active">Results</a>
+        <a href="#" class="nav-link">History</a>
+        <a href="#" class="nav-link">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- [SECTION: Run status indicator — global component, visible on all pages when run is active] -->
+  <div class="global-run-status">
+    <span class="status-icon">⏳</span>
+    <span class="status-text">Run in progress — 12/25 items done</span>
+    <!-- NOTE: This component is driven by IRunStatusService singleton, no polling -->
+  </div>
+
+  <!-- [SECTION: Page Content] -->
+  <main class="container main-content">
+    
+    <!-- [STATE: Loading] Hidden when data loaded -->
+    <div class="loading-state" style="display:none;">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+    <!-- [STATE: Success with results] -->
+    <div class="results-container">
+      <div class="page-header">
+        <h2>Scrape Run Results</h2>
+        <div class="run-metadata">
+          <span class="metadata-item"><strong>Started:</strong> 2026-04-02 14:30</span>
+          <span class="metadata-item"><strong>Forum:</strong> Example Forum</span>
+          <span class="metadata-item"><strong>Items:</strong> 25</span>
+          <span class="metadata-item"><strong>Status:</strong> Complete</span>
+        </div>
+      </div>
+
+      <!-- [COMPONENT: Post Group Card — Watchlist Match] -->
+      <!-- TODO: Watchlist matches display distinct left border (color: green) and badge -->
+      <article class="post-card watchlist-match">
+        <div class="card-border-left"></div>
+        <div class="card-content">
+          <div class="card-header">
+            <h3 class="post-title">
+              <!-- TODO: Post title is clickable link to original forum post -->
+              <a href="#" class="post-link">[Series Name] S01E01-E10 [1080p WEB-DL]</a>
+            </h3>
+            <div class="badges">
+              <span class="badge badge-watchlist">Watchlist</span>
+              <span class="badge badge-matched">Matched</span>
+            </div>
+          </div>
+          
+          <div class="post-metadata">
+            <span class="metadata-label">Posted:</span> <span>2026-03-15</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Forum:</span> <span>Example Forum</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Quality Rank:</span> <span class="quality-rank">95</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Links:</span> <span>12</span>
+          </div>
+
+          <div class="imdb-match">
+            <span class="metadata-label">IMDB:</span>
+            <!-- TODO: IMDB title is clickable link to IMDB page -->
+            <a href="#" class="imdb-link">Series Name (2024)</a>
+          </div>
+
+          <div class="links-preview">
+            <!-- TODO: All URLs validated to http/https/magnet/torrent schemes; others replaced with # -->
+            <a href="magnet:?xt=..." class="link-item">Magnet Link 1</a>
+            <a href="https://..." class="link-item">Direct Download 1</a>
+            <a href="https://..." class="link-item">Direct Download 2</a>
+            <span class="link-more">+9 more</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- [COMPONENT: Post Group Card — Matched (no watchlist)] -->
+      <article class="post-card matched">
+        <div class="card-content">
+          <div class="card-header">
+            <h3 class="post-title">
+              <a href="#" class="post-link">[Movie Name] 2024 [2160p BluRay]</a>
+            </h3>
+            <div class="badges">
+              <span class="badge badge-matched">Matched</span>
+            </div>
+          </div>
+          
+          <div class="post-metadata">
+            <span class="metadata-label">Posted:</span> <span>2026-03-10</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Forum:</span> <span>Example Forum</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Quality Rank:</span> <span class="quality-rank">88</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Links:</span> <span>8</span>
+          </div>
+
+          <div class="imdb-match">
+            <span class="metadata-label">IMDB:</span>
+            <a href="#" class="imdb-link">Movie Name (2024)</a>
+          </div>
+
+          <div class="links-preview">
+            <a href="magnet:?xt=..." class="link-item">Magnet Link 1</a>
+            <a href="https://..." class="link-item">Direct Download 1</a>
+            <span class="link-more">+6 more</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- [COMPONENT: Post Group Card — Partial Match] -->
+      <article class="post-card partial-match">
+        <div class="card-content">
+          <div class="card-header">
+            <h3 class="post-title">
+              <a href="#" class="post-link">[Another Series] S02 [720p]</a>
+            </h3>
+            <div class="badges">
+              <span class="badge badge-partial">Partial</span>
+            </div>
+          </div>
+          
+          <div class="post-metadata">
+            <span class="metadata-label">Posted:</span> <span>2026-03-08</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Quality Rank:</span> <span class="quality-rank">72</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Links:</span> <span>5</span>
+          </div>
+
+          <div class="imdb-match">
+            <span class="metadata-label">IMDB:</span>
+            <a href="#" class="imdb-link">Another Series (2023)</a>
+            <span class="partial-note">(Season mismatch or incomplete episodes)</span>
+          </div>
+
+          <div class="links-preview">
+            <a href="magnet:?xt=..." class="link-item">Magnet Link 1</a>
+            <span class="link-more">+4 more</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- [COMPONENT: Post Group Card — Unmatched] -->
+      <!-- TODO: Unmatched posts rendered in greyed/muted style, ranked after all matched posts -->
+      <article class="post-card unmatched">
+        <div class="card-content">
+          <div class="card-header">
+            <h3 class="post-title">
+              <a href="#" class="post-link">[Unknown Content] Random Files</a>
+            </h3>
+            <div class="badges">
+              <span class="badge badge-unmatched">No IMDB match</span>
+            </div>
+          </div>
+          
+          <div class="post-metadata">
+            <span class="metadata-label">Posted:</span> <span>2026-03-05</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Quality Rank:</span> <span class="quality-rank">45</span>
+            <span class="separator">•</span>
+            <span class="metadata-label">Links:</span> <span>3</span>
+          </div>
+
+          <div class="no-match-message">
+            No IMDB match found for this content.
+          </div>
+
+          <div class="links-preview">
+            <a href="https://..." class="link-item">Direct Download 1</a>
+            <span class="link-more">+2 more</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- [STATE: Empty State] Displayed when zero results -->
+    <div class="empty-state" style="display:none;">
+      <div class="empty-icon">📭</div>
+      <h3>No results found for this run</h3>
+      <p>The scrape run completed but found no matching content.</p>
+      <!-- TODO: Button redirects to /search -->
+      <a href="/search" class="btn btn-primary">Back to Search</a>
+    </div>
+
+    <!-- [STATE: Error State] Displayed when data fetch fails -->
+    <div class="error-state" style="display:none;">
+      <div class="error-icon">⚠️</div>
+      <h3>Failed to load results</h3>
+      <p class="error-message">An error occurred while loading the results. Please try again.</p>
+      <button class="btn btn-secondary">Retry</button>
+    </div>
+
+  </main>
+
+  <!-- [SECTION: Footer] -->
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; 2026 SeriesScraper • <a href="/about">About</a> • <a href="/settings">Settings</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>

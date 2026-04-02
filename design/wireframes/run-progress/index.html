@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Progress — Wireframe</title>
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- [SECTION: Application Shell] -->
+  <header class="app-header">
+    <div class="container">
+      <h1 class="app-title">SeriesScraper</h1>
+      <nav class="main-nav">
+        <a href="#" class="nav-link">Search</a>
+        <a href="#" class="nav-link">Results</a>
+        <a href="#" class="nav-link">History</a>
+        <a href="#" class="nav-link">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- [SECTION: Global run status indicator] -->
+  <!-- TODO: This component reads from IRunStatusService singleton, visible on all pages when run is active -->
+  <div class="global-run-status active">
+    <span class="status-icon">⏳</span>
+    <span class="status-text">Run in progress — 12/25 items done</span>
+    <!-- TODO: clicking this navigates to /runs/{runId} -->
+    <a href="#" class="status-link">View Progress</a>
+  </div>
+
+  <!-- [SECTION: Page Content] -->
+  <main class="container main-content">
+    
+    <div class="progress-container">
+      
+      <div class="page-header">
+        <h2>Scrape Run Progress</h2>
+        <div class="run-metadata">
+          <span class="metadata-item"><strong>Started:</strong> 2026-04-02 14:30</span>
+          <span class="metadata-item"><strong>Forum:</strong> Example Forum</span>
+          <span class="metadata-item"><strong>Items:</strong> 25</span>
+          <span class="metadata-item status-running"><strong>Status:</strong> Running</span>
+        </div>
+      </div>
+
+      <!-- [COMPONENT: Progress Overview] -->
+      <div class="progress-overview">
+        <div class="progress-bar-container">
+          <div class="progress-bar" style="width: 48%;">
+            <span class="progress-text">12 / 25 items completed</span>
+          </div>
+        </div>
+        <div class="progress-stats">
+          <div class="stat-item">
+            <span class="stat-value">12</span>
+            <span class="stat-label">Done</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">3</span>
+            <span class="stat-label">Scraping</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">8</span>
+            <span class="stat-label">Queued</span>
+          </div>
+          <div class="stat-item error">
+            <span class="stat-value">2</span>
+            <span class="stat-label">Failed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- [COMPONENT: Action Buttons] -->
+      <div class="action-buttons">
+        <!-- TODO: Cancel button visible when run status = Running -->
+        <!-- TODO: clicking sends cancellation signal to IScrapingJobQueue, marks run as Partial, updates UI -->
+        <button class="btn btn-danger">Cancel Run</button>
+        
+        <!-- TODO: Resume button visible when run status = Partial (hidden in this state) -->
+        <button class="btn btn-primary" style="display:none;">Resume Run</button>
+        
+        <!-- TODO: View Results button visible when run status = Complete or Partial (hidden in this state) -->
+        <button class="btn btn-success" style="display:none;">View Results</button>
+      </div>
+
+      <!-- [SECTION: Per-Item Status List] -->
+      <!-- TODO: Real-time updates delivered via Blazor Server SignalR — background service pushes state changes -->
+      <!-- TODO: NO polling timer in UI component -->
+      <div class="items-status-list">
+        <h3>Items Progress</h3>
+        
+        <!-- Item: Done -->
+        <div class="status-item status-done">
+          <div class="item-icon">✓</div>
+          <div class="item-details">
+            <div class="item-name">Breaking Bad S01E01-E05</div>
+            <div class="item-status">Done</div>
+          </div>
+        </div>
+
+        <!-- Item: Done -->
+        <div class="status-item status-done">
+          <div class="item-icon">✓</div>
+          <div class="item-details">
+            <div class="item-name">The Office S01-S09</div>
+            <div class="item-status">Done</div>
+          </div>
+        </div>
+
+        <!-- Item: Matching -->
+        <div class="status-item status-matching">
+          <div class="item-icon">⏳</div>
+          <div class="item-details">
+            <div class="item-name">Stranger Things S04</div>
+            <div class="item-status">Matching against IMDB...</div>
+          </div>
+        </div>
+
+        <!-- Item: Scraping -->
+        <div class="status-item status-scraping">
+          <div class="item-icon">🔄</div>
+          <div class="item-details">
+            <div class="item-name">Game of Thrones S08</div>
+            <div class="item-status">Scraping forum posts...</div>
+          </div>
+        </div>
+
+        <!-- Item: Scraping -->
+        <div class="status-item status-scraping">
+          <div class="item-icon">🔄</div>
+          <div class="item-details">
+            <div class="item-name">The Wire Complete</div>
+            <div class="item-status">Scraping forum posts...</div>
+          </div>
+        </div>
+
+        <!-- Item: Queued -->
+        <div class="status-item status-queued">
+          <div class="item-icon">⏸</div>
+          <div class="item-details">
+            <div class="item-name">Peaky Blinders S01-S06</div>
+            <div class="item-status">Queued</div>
+          </div>
+        </div>
+
+        <!-- Item: Queued -->
+        <div class="status-item status-queued">
+          <div class="item-icon">⏸</div>
+          <div class="item-details">
+            <div class="item-name">Succession S01-S04</div>
+            <div class="item-status">Queued</div>
+          </div>
+        </div>
+
+        <!-- Item: Failed -->
+        <!-- TODO: Failed items show inline error_message from ScrapeRunItems entity -->
+        <div class="status-item status-failed">
+          <div class="item-icon">✗</div>
+          <div class="item-details">
+            <div class="item-name">Sherlock Complete</div>
+            <div class="item-status">Failed</div>
+            <div class="item-error">
+              <!-- TODO: Long error messages are truncated with expand button -->
+              Error: Connection timeout while scraping forum. Network unreachable.
+              <button class="expand-error">Show full error</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item: Failed -->
+        <div class="status-item status-failed">
+          <div class="item-icon">✗</div>
+          <div class="item-details">
+            <div class="item-name">Black Mirror S01-S05</div>
+            <div class="item-status">Failed</div>
+            <div class="item-error">
+              Error: IMDB match failed — no results found.
+            </div>
+          </div>
+        </div>
+
+        <!-- More queued items... -->
+        <div class="status-item status-queued">
+          <div class="item-icon">⏸</div>
+          <div class="item-details">
+            <div class="item-name">Better Call Saul Complete</div>
+            <div class="item-status">Queued</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- [STATE: Connection Lost] Shown when SignalR connection drops -->
+      <div class="connection-warning" style="display:none;">
+        <span class="warning-icon">⚠️</span>
+        <span class="warning-text">Connection lost. Reconnecting...</span>
+      </div>
+
+    </div>
+
+    <!-- [STATE: Partial Run] Displayed when run was cancelled -->
+    <div class="partial-run-state" style="display:none;">
+      <div class="page-header">
+        <h2>Scrape Run (Partial)</h2>
+        <div class="run-metadata">
+          <span class="metadata-item"><strong>Started:</strong> 2026-04-02 14:30</span>
+          <span class="metadata-item"><strong>Cancelled:</strong> 2026-04-02 14:45</span>
+          <span class="metadata-item"><strong>Forum:</strong> Example Forum</span>
+          <span class="metadata-item"><strong>Items:</strong> 12/25 completed</span>
+          <span class="metadata-item status-partial"><strong>Status:</strong> Partial</span>
+        </div>
+      </div>
+
+      <div class="partial-message">
+        <p>This run was cancelled and is incomplete. You can resume from where it left off.</p>
+      </div>
+
+      <div class="action-buttons">
+        <!-- TODO: Resume button re-enqueues run starting from next pending item -->
+        <button class="btn btn-primary">Resume Run</button>
+        <!-- TODO: View Results shows partial results -->
+        <button class="btn btn-secondary">View Partial Results</button>
+      </div>
+    </div>
+
+    <!-- [STATE: Complete] Displayed when run finished -->
+    <div class="complete-run-state" style="display:none;">
+      <div class="page-header">
+        <h2>Scrape Run Complete</h2>
+        <div class="run-metadata">
+          <span class="metadata-item"><strong>Started:</strong> 2026-04-02 14:30</span>
+          <span class="metadata-item"><strong>Completed:</strong> 2026-04-02 15:15</span>
+          <span class="metadata-item"><strong>Forum:</strong> Example Forum</span>
+          <span class="metadata-item"><strong>Items:</strong> 25</span>
+          <span class="metadata-item status-complete"><strong>Status:</strong> Complete</span>
+        </div>
+      </div>
+
+      <div class="completion-summary">
+        <div class="summary-card">
+          <h3>Run Summary</h3>
+          <ul>
+            <li><strong>23</strong> items completed successfully</li>
+            <li><strong>2</strong> items failed</li>
+            <li><strong>Total results:</strong> 157 posts</li>
+            <li><strong>Watchlist matches:</strong> 5</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <!-- TODO: navigates to /runs/{runId}/results -->
+        <button class="btn btn-success">View Results</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- [SECTION: Footer] -->
+  <footer class="app-footer">
+    <div class="container">
+      <p>&copy; 2026 SeriesScraper • <a href="/about">About</a> • <a href="/settings">Settings</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>

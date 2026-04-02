@@ -1,0 +1,255 @@
+/* History Page Specific Styles */
+
+.history-container {
+  padding: 2rem 0;
+}
+
+.page-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.filter-note {
+  color: #6c757d;
+  font-style: italic;
+  margin: 0 0 2rem 0;
+  font-size: 0.9rem;
+}
+
+/* Loading State */
+.loading-state {
+  padding: 2rem 0;
+}
+
+.skeleton-row {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* History Table */
+.history-table-container {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.history-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.run-row {
+  transition: background 0.2s;
+}
+
+.run-row.clickable {
+  cursor: pointer;
+}
+
+.run-row.clickable:hover {
+  background: #f8f9fa;
+}
+
+.run-row.stale {
+  opacity: 0.7;
+}
+
+.history-table td {
+  padding: 1rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-complete {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-partial {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.status-failed {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.stale-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+  margin-left: 0.5rem;
+}
+
+.results-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.results-link:hover {
+  text-decoration: underline;
+}
+
+.no-results {
+  color: #6c757d;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.page-number {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #007bff;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.page-number:hover {
+  background: #f8f9fa;
+}
+
+.page-number.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #007bff;
+  cursor: default;
+}
+
+.page-separator {
+  color: #6c757d;
+  padding: 0 0.25rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 2rem;
+}
+
+/* Responsive: Mobile */
+@media (max-width: 768px) {
+  .history-table {
+    font-size: 0.85rem;
+  }
+  
+  .history-table th,
+  .history-table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  /* Stack table cells on mobile if needed */
+  .history-table thead {
+    display: none;
+  }
+  
+  .history-table tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+  }
+  
+  .history-table td {
+    display: block;
+    text-align: right;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .history-table td:last-child {
+    border-bottom: none;
+  }
+  
+  .history-table td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: #495057;
+  }
+}
