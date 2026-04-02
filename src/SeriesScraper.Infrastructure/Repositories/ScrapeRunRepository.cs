@@ -101,4 +101,90 @@ public class ScrapeRunRepository : IScrapeRunRepository
             .OrderByDescending(r => r.StartedAt)
             .ToListAsync(ct);
     }
+
+    public async Task<(IReadOnlyList<RunHistorySummaryDto> Items, int TotalCount)> GetRunHistoryPagedAsync(
+        RunHistoryFilterDto filter, int page, int pageSize, string? sortBy, bool sortDescending, CancellationToken ct = default)
+    {
+        var query = _context.ScrapeRuns.AsNoTracking()
+            .Include(r => r.Forum)
+            .AsQueryable();
+
+        // Filter: only completed runs (not Pending/Running)
+        var historyStatuses = new[] { ScrapeRunStatus.Complete, ScrapeRunStatus.Failed, ScrapeRunStatus.Partial };
+        query = query.Where(r => historyStatuses.Contains(r.Status));
+
+        if (filter.ForumId.HasValue)
+            query = query.Where(r => r.ForumId == filter.ForumId.Value);
+
+        if (!string.IsNullOrEmpty(filter.StatusFilter) &&
+            Enum.TryParse<ScrapeRunStatus>(filter.StatusFilter, true, out var statusEnum))
+            query = query.Where(r => r.Status == statusEnum);
+
+        if (filter.DateFrom.HasValue)
+            query = query.Where(r => r.StartedAt >= filter.DateFrom.Value);
+
+        if (filter.DateTo.HasValue)
+            query = query.Where(r => r.StartedAt <= filter.DateTo.Value);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var projected = query.Select(r => new RunHistorySummaryDto
+        {
+            RunId = r.RunId,
+            ForumName = r.Forum != null ? r.Forum.Name : "Unknown",
+            StartedAt = r.StartedAt,
+            CompletedAt = r.CompletedAt,
+            Status = r.Status.ToString(),
+            TotalItems = r.TotalItems,
+            ProcessedItems = r.ProcessedItems,
+            LinkCount = _context.Links.Count(l => l.RunId == r.RunId),
+            MatchCount = _context.ScrapeRunItems.Count(i => i.RunId == r.RunId && i.ItemId != null)
+        });
+
+        projected = ApplyHistorySort(projected, sortBy, sortDescending);
+
+        var items = await projected
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    public async Task<RunHistorySummaryDto?> GetRunSummaryByIdAsync(int runId, CancellationToken ct = default)
+    {
+        return await _context.ScrapeRuns.AsNoTracking()
+            .Include(r => r.Forum)
+            .Where(r => r.RunId == runId)
+            .Select(r => new RunHistorySummaryDto
+            {
+                RunId = r.RunId,
+                ForumName = r.Forum != null ? r.Forum.Name : "Unknown",
+                StartedAt = r.StartedAt,
+                CompletedAt = r.CompletedAt,
+                Status = r.Status.ToString(),
+                TotalItems = r.TotalItems,
+                ProcessedItems = r.ProcessedItems,
+                LinkCount = _context.Links.Count(l => l.RunId == r.RunId),
+                MatchCount = _context.ScrapeRunItems.Count(i => i.RunId == r.RunId && i.ItemId != null)
+            })
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static IQueryable<RunHistorySummaryDto> ApplyHistorySort(
+        IQueryable<RunHistorySummaryDto> query, string? sortBy, bool sortDescending)
+    {
+        return sortBy?.ToLowerInvariant() switch
+        {
+            "forum" => sortDescending ? query.OrderByDescending(r => r.ForumName) : query.OrderBy(r => r.ForumName),
+            "items" => sortDescending ? query.OrderByDescending(r => r.TotalItems) : query.OrderBy(r => r.TotalItems),
+            "links" => sortDescending ? query.OrderByDescending(r => r.LinkCount) : query.OrderBy(r => r.LinkCount),
+            "matches" => sortDescending ? query.OrderByDescending(r => r.MatchCount) : query.OrderBy(r => r.MatchCount),
+            "duration" => sortDescending
+                ? query.OrderByDescending(r => r.CompletedAt != null ? r.CompletedAt - r.StartedAt : (TimeSpan?)null)
+                : query.OrderBy(r => r.CompletedAt != null ? r.CompletedAt - r.StartedAt : (TimeSpan?)null),
+            "status" => sortDescending ? query.OrderByDescending(r => r.Status) : query.OrderBy(r => r.Status),
+            _ => sortDescending ? query.OrderByDescending(r => r.StartedAt) : query.OrderBy(r => r.StartedAt)
+        };
+    }
 }

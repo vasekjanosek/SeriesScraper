@@ -83,6 +83,9 @@ try
 
     // Watchlist service (#19)
     builder.Services.AddScoped<IWatchlistService, WatchlistService>();
+
+    // History service (#33)
+    builder.Services.AddScoped<IHistoryService, HistoryService>();
     builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();
 
     // Run progress service (#32)

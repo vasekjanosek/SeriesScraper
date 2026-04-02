@@ -17,4 +17,9 @@ public interface IScrapeRunRepository
     Task AddRunItemAsync(ScrapeRunItem item, CancellationToken ct = default);
     Task UpdateRunItemStatusAsync(int runItemId, ScrapeRunItemStatus status, CancellationToken ct = default);
     Task<IReadOnlyList<ScrapeRun>> GetActiveRunsAsync(CancellationToken ct = default);
+
+    // History queries (#33)
+    Task<(IReadOnlyList<RunHistorySummaryDto> Items, int TotalCount)> GetRunHistoryPagedAsync(
+        RunHistoryFilterDto filter, int page, int pageSize, string? sortBy, bool sortDescending, CancellationToken ct = default);
+    Task<RunHistorySummaryDto?> GetRunSummaryByIdAsync(int runId, CancellationToken ct = default);
 }

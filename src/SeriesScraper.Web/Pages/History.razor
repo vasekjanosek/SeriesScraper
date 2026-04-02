@@ -1,0 +1,229 @@
+@page "/history"
+@using SeriesScraper.Domain.Interfaces
+@inject IHistoryService HistoryService
+@inject NavigationManager Navigation
+
+<PageTitle>Run History</PageTitle>
+
+<h3>Run History</h3>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select form-select-sm" @bind="StatusFilter">
+                    <option value="">All</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Failed">Failed</option>
+                    <option value="Partial">Partial</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" @onclick="ApplyFilters">Apply</button>
+            </div>
+            <div class="col-md-8 text-muted small align-self-center">
+                Additional filtering (date range, forum) will be added in a future version.
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_results is null || _results.TotalCount == 0)
+{
+    <div class="alert alert-info">No past runs found.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th role="button" @onclick='() => ToggleSort("date")'>
+                        Date @SortIndicator("date")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("forum")'>
+                        Forum @SortIndicator("forum")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("items")'>
+                        Items @SortIndicator("items")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("links")'>
+                        Links @SortIndicator("links")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("matches")'>
+                        Matches @SortIndicator("matches")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("duration")'>
+                        Duration @SortIndicator("duration")
+                    </th>
+                    <th role="button" @onclick='() => ToggleSort("status")'>
+                        Status @SortIndicator("status")
+                    </th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in _results.Items)
+                {
+                    <tr>
+                        <td>@run.StartedAt.ToString("g")</td>
+                        <td>@run.ForumName</td>
+                        <td>@run.ProcessedItems / @run.TotalItems</td>
+                        <td>@run.LinkCount</td>
+                        <td>@run.MatchCount</td>
+                        <td>@FormatDuration(run.Duration)</td>
+                        <td><span class="badge @StatusBadgeClass(run.Status)">@run.Status</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => ViewResults(run.RunId)">
+                                View Results
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (_results.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(_currentPage <= 1 ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(_currentPage - 1)">&laquo;</button>
+                </li>
+                @foreach (var p in GetPageNumbers())
+                {
+                    <li class="page-item @(p == _currentPage ? "active" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(p)">@p</button>
+                    </li>
+                }
+                <li class="page-item @(_currentPage >= _results.TotalPages ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(_currentPage + 1)">&raquo;</button>
+                </li>
+            </ul>
+        </nav>
+    }
+}
+
+@code {
+    private PagedResult<RunHistorySummaryDto>? _results;
+    private bool _loading = true;
+
+    // Filter state
+    private string? StatusFilter;
+
+    // Sort state
+    private string _sortBy = "date";
+    private bool _sortDescending = true;
+
+    // Pagination
+    private int _currentPage = 1;
+    private const int PageSize = 50;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var filter = new RunHistoryFilterDto
+            {
+                StatusFilter = string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter
+            };
+
+            _results = await HistoryService.GetRunHistoryAsync(
+                filter, _currentPage, PageSize, _sortBy, _sortDescending);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        _currentPage = 1;
+        await LoadHistoryAsync();
+    }
+
+    private async Task ToggleSort(string column)
+    {
+        if (_sortBy == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortBy = column;
+            _sortDescending = column == "date"; // default desc for date, asc for others
+        }
+
+        _currentPage = 1;
+        await LoadHistoryAsync();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (_results is null) return;
+        if (page < 1 || page > _results.TotalPages) return;
+        _currentPage = page;
+        await LoadHistoryAsync();
+    }
+
+    private void ViewResults(int runId)
+    {
+        Navigation.NavigateTo($"/results?runId={runId}");
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        if (_results is null) yield break;
+        var totalPages = _results.TotalPages;
+        var start = Math.Max(1, _currentPage - 2);
+        var end = Math.Min(totalPages, _currentPage + 2);
+
+        for (var i = start; i <= end; i++)
+            yield return i;
+    }
+
+    private static string FormatDuration(TimeSpan? duration)
+    {
+        if (!duration.HasValue) return "—";
+        var d = duration.Value;
+        if (d.TotalHours >= 1)
+            return $"{(int)d.TotalHours}h {d.Minutes}m";
+        if (d.TotalMinutes >= 1)
+            return $"{d.Minutes}m {d.Seconds}s";
+        return $"{d.Seconds}s";
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Complete" => "bg-success",
+        "Failed" => "bg-danger",
+        "Partial" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string SortIndicator(string column)
+    {
+        if (_sortBy != column) return "";
+        return _sortDescending ? "▼" : "▲";
+    }
+}
