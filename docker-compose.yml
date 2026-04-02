@@ -95,8 +95,9 @@ services:
   # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
   # Tokens expire after 1 hour — re-generate if runner fails to register.
   github-runner:
-    # Pinned to specific version tag (not :latest) for security and reproducibility
-    image: myoung34/github-runner:2.320.0
+    # Pinned to specific digest SHA for security and reproducibility (AC#1)
+    # To update: docker manifest inspect myoung34/github-runner:<new-version> | jq '.manifests[] | select(.platform.architecture=="amd64") | .digest'
+    image: myoung34/github-runner@sha256:3b7544a5dca59578e0024f7d21411f0d4e032880a04f0c01aaddebd4b21ca19e
     environment:
       REPO_URL: ${GITHUB_REPO_URL}
       RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
