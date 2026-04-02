@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Serilog;
+using SeriesScraper.Application.Security;
 using SeriesScraper.Application.Services;
 using SeriesScraper.Domain.Interfaces;
 using SeriesScraper.Infrastructure.Data;
@@ -10,6 +11,9 @@ using SeriesScraper.Infrastructure.Services.Imdb;
 using SeriesScraper.Web.BackgroundServices;
 using SeriesScraper.Web.Data;
 using SeriesScraper.Web.Logging;
+
+// Set global regex timeout as safety net for ReDoS prevention (#48)
+SafeRegex.SetGlobalTimeout();
 
 // Bootstrap logger for startup errors (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -34,6 +38,9 @@ try
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
     builder.Services.AddSingleton<WeatherForecastService>();
+
+    // Antiforgery for any HTTP POST endpoints (#47)
+    builder.Services.AddAntiforgery();
 
     // Scraping job queue (singleton — shared between UI and BackgroundService)
     builder.Services.AddSingleton<IScrapingJobQueue, ScrapingJobQueue>();
@@ -63,6 +70,10 @@ try
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 
+    // Security services (#45, #46)
+    builder.Services.AddSingleton<ISanitizer, HtmlContentSanitizer>();
+    builder.Services.AddScoped<IUrlValidator, ForumUrlValidator>();
+
     var app = builder.Build();
 
     // Serilog request logging middleware
@@ -88,6 +99,9 @@ try
     app.UseStaticFiles();
 
     app.UseRouting();
+
+    // Antiforgery middleware for CSRF protection on any non-Blazor POST endpoints (#47)
+    app.UseAntiforgery();
 
     app.MapBlazorHub();
     app.MapFallbackToPage("/_Host");
