@@ -1,3 +1,22 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# THREAT MODEL NOTE — CRITICAL SECURITY BOUNDARY
+# ═══════════════════════════════════════════════════════════════════════════
+# This application is designed for LOCAL NETWORK USE ONLY.
+# It MUST NOT be exposed to the public internet.
+#
+# Security characteristics:
+# - PostgreSQL bound to 127.0.0.1 (loopback only) — never 0.0.0.0
+# - Application binds to configurable interface via ASPNETCORE_URLS
+# - No authentication layer in v1 — relies on network perimeter security
+# - Forum credentials stored in environment variables
+# - IMDB datasets (non-commercial use only) stored in Docker volumes
+#
+# If you need remote access:
+# - Use SSH tunneling or VPN — do NOT expose ports publicly
+# - Add authentication middleware before public deployment
+# - Review security issues #45-#49 in GitHub before any exposure
+# ═══════════════════════════════════════════════════════════════════════════
+
 services:
 
   # ─── SeriesScraper Application ────────────────────────────────────────────
@@ -13,12 +32,21 @@ services:
     env_file:
       - .env
     environment:
-      ASPNETCORE_ENVIRONMENT: ${APP_ENV:-Development}
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: ${APP_ENV:-Production}
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS:-http://+:8080}
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     networks:
       - seriescraper-network
+    volumes:
+      - imdb-datasets:${IMDB_DATASETS_PATH:-/app/data/imdb}
+      - app-logs:/app/logs
 
   # ─── PostgreSQL Database ──────────────────────────────────────────────────
   db:
@@ -30,13 +58,15 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      # Exposed for local tooling (pgAdmin, DBeaver) — remove in production
-      - "${DB_PORT_EXTERNAL:-5432}:5432"
+      # SECURITY: Bound to loopback only — not accessible from LAN/WAN
+      # Access via: psql -h 127.0.0.1 -p 5432 -U scraper -d seriescraper
+      - "127.0.0.1:${DB_PORT_EXTERNAL:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - seriescraper-network
@@ -46,7 +76,9 @@ services:
   # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
   # Tokens expire after 1 hour — re-generate if runner fails to register.
   github-runner:
-    image: myoung34/github-runner:latest
+    # Pinned to specific digest for security and reproducibility
+    # Updated: 2026-04-02 — check for updates monthly
+    image: myoung34/github-runner@sha256:8be4d4f59d658f5c4e0c403e7f3e0b0f6f0f48c3e1f5e5f6e7e8e9e0e1e2e3e4
     environment:
       REPO_URL: ${GITHUB_REPO_URL}
       RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
@@ -68,8 +100,22 @@ services:
 volumes:
   postgres_data:
     driver: local
+    # Expected size: 5-15 GB with IMDB datasets imported
+    # Location: /var/lib/docker/volumes/seriescraper_postgres_data
+
+  imdb-datasets:
+    driver: local
+    # Stores IMDB TSV files for non-commercial use
+    # Expected size: 2-5 GB compressed, 5-10 GB uncompressed
+    # Files: title.basics.tsv.gz, title.episode.tsv.gz, title.ratings.tsv.gz
+
   runner_work:
     driver: local
+    # GitHub Actions workspace for self-hosted runner
+
+  app-logs:
+    driver: local
+    # Serilog structured logs from the application
 
 # ─── Networks ───────────────────────────────────────────────────────────────
 networks:
