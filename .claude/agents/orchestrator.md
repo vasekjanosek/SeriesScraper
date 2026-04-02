@@ -33,11 +33,14 @@ Scan GitHub Issues for gate labels to determine where to resume:
 | Condition | Phase | Action |
 |---|---|---|
 | No issues exist | `scope` | Trigger `product-manager` for scope definition |
-| Issues exist, `gate:architecture` present | `architecture` | Trigger `architect` + `ux-designer` (UI issues) + `data-engineer` |
-| `gate:planning` present | `planning` | Trigger `planner` |
+| `gate:research` present, `type:research` issues unresolved | `research` | Trigger `research` for each research issue (BEFORE architecture) |
+| `gate:architecture` present | `architecture` | Trigger `architect` + `ux-designer` (UI issues) + `data-engineer` |
+| `gate:security-review` present | `security-review` | Trigger `security` (PASS 1: design review, re-evaluate existing issues) |
+| `gate:planning` present | `planning` | Trigger `planner` to review and refine PM's existing tasks |
 | Issues with `status:ready` exist | `development` | Assign to available developer slots |
 | Open PRs with `status:in-review` | `review` | Trigger `reviewer` for each |
 | Open PRs with `status:in-testing` | `testing` | Trigger `tester` for each |
+| Open PRs with `status:security-review` | `security-code-review` | Trigger `security` (PASS 2: code review) for each |
 | Open PRs with `status:awaiting-pm` | `pm-review` | Trigger `product-manager` |
 | `conflict-loop` + `needs-human` labels present | `escalation` | Report to user and wait |
 

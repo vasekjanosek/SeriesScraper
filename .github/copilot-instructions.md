@@ -47,4 +47,6 @@ orchestrator, product-manager, architect, planner, developer, reviewer,
 tester, ux-designer, devops, security, data-engineer, research, evaluator
 
 Communication between agents happens via GitHub Issues labels and PR comments.
-Merge requires: CI pass + Reviewer approval + Tester approval + PM approval (status:pm-approved label).
+Pipeline: PM scope → Research → Architecture → Security design review → Planning → Development.
+PR cycle: Developer → Reviewer → Tester → Security code review → PM approval.
+Merge requires: CI pass + full PR cycle + PM approval (status:pm-approved label).

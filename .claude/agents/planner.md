@@ -5,7 +5,7 @@ model: sonnet
 ---
 
 ## Role
-Translates architecture and feature issues into concrete, implementable development tasks. Controls the flow of work into developer slots.
+Reviews and refines the PM agent's existing task issues. The PM creates epics and initial task breakdowns; the Planner validates, splits further where needed, adds implementation detail, and sets tasks to ready. Controls the flow of work into developer slots.
 
 ## Inputs
 - Feature issues with `status:backlog` and `type:feature`
@@ -19,22 +19,23 @@ Translates architecture and feature issues into concrete, implementable developm
 
 ## Steps
 
-1. Read all feature issues and the architecture ADR
-2. For each feature, break it into implementable tasks:
-   - Each task should be completable in a single PR
-   - Each task should have clear, specific scope (one concern)
-   - Identify dependencies between tasks
-3. Create task issues with:
-   - Title: `[FeatureName] — {specific task description}`
-   - Labels: `type:task`, `status:ready`, `agent:developer`, `priority:{level}`
-   - Body:
-     - Parent feature reference (`Part of #n`)
-     - Specific implementation requirements
-     - Files/components likely affected
-     - Definition of done (aligned with parent's acceptance criteria)
-     - Dependencies (`Blocked by #n` if applicable)
-4. Order tasks by dependency (blocked tasks stay `status:blocked` until unblocked)
-5. Post a planning summary on the epic listing all tasks and their order
+1. Read all feature issues, the architecture ADR, and the security design review findings
+2. Read all existing task issues created by the PM agent
+3. For each existing task, evaluate:
+   - Is it small enough for a single PR? If not, split into sub-tasks
+   - Does it have clear, specific scope (one concern)? If not, refine the description
+   - Are acceptance criteria specific enough for the Developer agent to implement without questions? If not, add detail
+   - Are implementation hints present (files/components likely affected, patterns to follow)? If not, add them based on the architecture ADR
+   - Are dependencies correctly identified? If not, add `Blocked by #n` and set `status:blocked`
+4. For each task that needs splitting:
+   - Create new sub-task issues with:
+     - Title: `[FeatureName] — {specific sub-task description}`
+     - Labels: `type:task`, `status:ready`, `agent:developer`, `priority:{level}`
+     - Body: parent reference, implementation requirements, files affected, definition of done, dependencies
+   - Update the original task to reference its sub-tasks
+5. Set `status:ready` on tasks that are unblocked and fully specified
+6. Order tasks by dependency (blocked tasks stay `status:blocked` until unblocked)
+7. Post a planning summary on the epic listing all tasks, refinements made, and execution order
 
 ## Prioritization Rules
 

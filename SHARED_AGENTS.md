@@ -37,15 +37,15 @@ GITHUB_USERNAME: vasekjanosek
 | `orchestrator` | Coordinates all agents, manages pipeline state | User prompt |
 | `product-manager` | Scope, acceptance criteria, PR approval, merge | User scope prompt / Orchestrator |
 | `architect` | System design, tech decisions, ADRs | Orchestrator after PM scope |
-| `planner` | Breaks epics into tasks, assigns priority and dev slots | Orchestrator after architecture |
+| `planner` | Reviews and refines PM's tasks, splits further, adds detail | Orchestrator after architecture |
 | `developer` | Implements features, fixes review/test failures | Orchestrator (up to MAX_DEV_SLOTS parallel) |
 | `reviewer` | Code quality review | Orchestrator after PR opened |
 | `tester` | Static analysis + dynamic testing | Orchestrator after review passes |
 | `ux-designer` | HTML/CSS wireframe prototypes | Orchestrator for UI features (parallel with architect) |
 | `devops` | Docker, CI/CD, infrastructure | Orchestrator during setup and infra tasks |
-| `security` | Static + dynamic security testing | Orchestrator after tester |
+| `security` | Design review after architecture + code review after tester | Orchestrator (two passes) |
 | `data-engineer` | Schema design, data pipelines | Orchestrator during architecture phase |
-| `research` | Technology research, evaluations | On-demand by any agent |
+| `research` | Technology research, evaluations | Orchestrator BEFORE architecture (blocking) |
 | `evaluator` | Monitors conflict cycles, detects loops | Orchestrator after 20 conflict cycles |
 
 ---
@@ -59,15 +59,29 @@ User triggers Orchestrator
   Orchestrator reads GitHub Issues state → determines phase
         │
         ├─── [PHASE: scope] ──────────────► PM Agent
-        │                                        │ Creates issues with acceptance criteria
+        │                                        │ Creates epics + task issues with acceptance criteria
+        │                                        │ Labels: gate:research
+        │
+        ├─── [PHASE: research] ──────────► Research Agent
+        │                                        │ Runs BEFORE architecture — outcomes inform design
+        │                                        │ Completes all type:research issues
         │                                        │ Labels: gate:architecture
         │
         ├─── [PHASE: architecture] ──────► Architect + UX Designer (parallel for UI)
         │                                  + Data Engineer (schema)
+        │                                        │ Uses research outcomes
+        │                                        │ Labels: gate:security-review
+        │
+        ├─── [PHASE: security-review] ──► Security Agent (PASS 1: design review)
+        │                                        │ Reviews architecture for threats
+        │                                        │ Re-evaluates existing security issues
+        │                                        │ Creates new issues if needed
         │                                        │ Labels: gate:planning
         │
         ├─── [PHASE: planning] ──────────► Planner
-        │                                        │ Breaks epics, sets status:ready
+        │                                        │ Reviews and refines PM's existing tasks
+        │                                        │ Splits further, adds implementation detail
+        │                                        │ Sets status:ready on tasks
         │
         └─── [PHASE: development] ───────► Orchestrator assigns issues to dev slots
                                                  │
@@ -79,7 +93,11 @@ User triggers Orchestrator
                                                  │ Code quality → status:in-testing or back to developer
                                                  │
                                           Tester
-                                                 │ Tests (≥90% coverage) → status:awaiting-pm or back
+                                                 │ Tests (≥90% coverage) → status:security-review or back
+                                                 │
+                                          Security Agent (PASS 2: code review)
+                                                 │ Reviews code for vulnerabilities
+                                                 │ → status:awaiting-pm or back to developer
                                                  │
                                           PM Agent
                                                  │ Acceptance criteria → status:pm-approved or back
@@ -98,9 +116,11 @@ Agents communicate exclusively through GitHub Issues labels and PR comments.
 
 ### Picking Up Work
 Each agent scans for issues matching its label + correct status:
+- Research picks up: `agent:research` + `status:backlog` (during research phase)
 - Developer picks up: `agent:developer` + `status:ready`
 - Reviewer picks up: open PR + `status:in-review`
 - Tester picks up: PR + `status:in-testing`
+- Security picks up: PR + `status:security-review` (pass 2: code review)
 - PM picks up: PR + `status:awaiting-pm`
 
 ### Label Schema
@@ -113,6 +133,7 @@ Each agent scans for issues matching its label + correct status:
 | `status:in-progress` | Agent actively working |
 | `status:in-review` | Under Reviewer agent |
 | `status:in-testing` | Under Tester agent |
+| `status:security-review` | Under Security agent (code review) |
 | `status:awaiting-pm` | Waiting for PM acceptance |
 | `status:pm-approved` | PM approved, merge triggered |
 | `status:done` | Merged and closed |
@@ -136,7 +157,7 @@ Each agent scans for issues matching its label + correct status:
 `priority:critical` / `priority:high` / `priority:medium` / `priority:low`
 
 **Gates**
-`gate:scope` / `gate:architecture` / `gate:planning`
+`gate:scope` / `gate:research` / `gate:architecture` / `gate:security-review` / `gate:planning`
 
 **Special**
 | Label | Meaning |

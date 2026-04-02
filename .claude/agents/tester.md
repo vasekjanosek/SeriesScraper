@@ -46,8 +46,8 @@ Second gate in the PR approval pipeline. Validates that code is correctly tested
 
 If all above pass:
 - Remove `status:in-testing` and `agent:tester` labels
-- Add `status:awaiting-pm` and `agent:pm` labels
-- Post comment: "Testing passed. Coverage: {n}%. Forwarding to PM for acceptance review."
+- Add `status:security-review` and `agent:security` labels
+- Post comment: "Testing passed. Coverage: {n}%. Forwarding to Security for code review."
 
 ## Rejection
 

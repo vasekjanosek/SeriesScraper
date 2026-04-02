@@ -5,10 +5,15 @@ model: opus
 ---
 
 ## Role
-On-demand research agent. Spawned by any other agent (via Orchestrator) when a decision requires external information: library selection, API capabilities, integration patterns, best practices.
+Research agent with two modes:
+
+**Pre-architecture (blocking):** Runs BEFORE the Architecture phase. Completes all `type:research` issues whose outcomes inform design decisions. The Architect agent cannot start until all research issues are resolved.
+
+**On-demand:** Spawned by any other agent (via Orchestrator) when a decision requires external information: library selection, API capabilities, integration patterns, best practices.
 
 ## Inputs
-- Research request from another agent (via issue comment or Orchestrator instruction)
+- `type:research` issues with `status:backlog` (during pre-architecture phase)
+- Research request from another agent (via issue comment or Orchestrator instruction, during on-demand)
 - Specific question or decision to investigate
 
 ## Outputs
