@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Serilog;
+using SeriesScraper.Application.Services;
+using SeriesScraper.Domain.Interfaces;
+using SeriesScraper.Infrastructure.Repositories;
+using SeriesScraper.Infrastructure.Services;
+using SeriesScraper.Web.BackgroundServices;
 using SeriesScraper.Web.Data;
 using SeriesScraper.Web.Logging;
 
@@ -27,6 +32,16 @@ try
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
     builder.Services.AddSingleton<WeatherForecastService>();
+
+    // Scraping job queue (singleton — shared between UI and BackgroundService)
+    builder.Services.AddSingleton<IScrapingJobQueue, ScrapingJobQueue>();
+
+    // Scoped services
+    builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();
+    builder.Services.AddScoped<IScrapeRunRepository, ScrapeRunRepository>();
+
+    // Background service
+    builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 
     var app = builder.Build();
 
