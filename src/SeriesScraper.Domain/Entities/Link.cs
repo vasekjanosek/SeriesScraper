@@ -11,6 +11,11 @@ public class Link
     public int LinkTypeId { get; set; }
     
     /// <summary>
+    /// Source post URL — used for accumulate-with-flag scoping per AC#7.
+    /// </summary>
+    public required string PostUrl { get; set; }
+    
+    /// <summary>
     /// Null = parsing failed or not applicable (movies).
     /// </summary>
     public int? ParsedSeason { get; set; }
