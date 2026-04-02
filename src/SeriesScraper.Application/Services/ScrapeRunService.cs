@@ -14,15 +14,18 @@ public class ScrapeRunService : IScrapeRunService
 {
     private readonly IScrapeRunRepository _repository;
     private readonly IScrapingJobQueue _jobQueue;
+    private readonly IScrapeOrchestrator _orchestrator;
     private readonly ILogger<ScrapeRunService> _logger;
 
     public ScrapeRunService(
         IScrapeRunRepository repository,
         IScrapingJobQueue jobQueue,
+        IScrapeOrchestrator orchestrator,
         ILogger<ScrapeRunService> logger)
     {
         _repository = repository;
         _jobQueue = jobQueue;
+        _orchestrator = orchestrator;
         _logger = logger;
     }
 
@@ -61,9 +64,8 @@ public class ScrapeRunService : IScrapeRunService
         // Check for cancellation before doing work
         ct.ThrowIfCancellationRequested();
 
-        // Future: delegate to IScrapingWorker.ExecuteAsync(job, ct)
-        // Actual scraping pipeline (thread enumeration, post extraction, link parsing,
-        // IMDB matching, quality analysis) will be implemented in issues #16, #17, #18, #24.
+        // Delegate to IScrapeOrchestrator for multi-item scraping pipeline
+        await _orchestrator.ExecuteAsync(job, ct);
 
         await CompleteRunAsync(job.RunId, ct);
     }
