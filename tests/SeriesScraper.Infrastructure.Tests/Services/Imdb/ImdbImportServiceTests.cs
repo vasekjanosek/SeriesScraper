@@ -407,6 +407,162 @@ public class ImdbImportServiceTests : IDisposable
         run.ErrorMessage.Should().Be("DB connection lost");
     }
 
+    // ---- Additional edge case tests for coverage ----
+
+    [Fact]
+    public async Task RunImportAsync_NonExistentTempFiles_CleanupSucceeds()
+    {
+        // Downloader returns paths that don't exist on disk
+        // This exercises the File.Exists == false branch in CleanupTempFiles
+        var callIndex = 0;
+        var fakePaths = new[] { "nonexistent1.tsv.gz", "nonexistent2.tsv.gz", "nonexistent3.tsv.gz", "nonexistent4.tsv.gz" };
+        _downloader.DownloadDatasetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ci => fakePaths[callIndex++]);
+
+        var service = CreateTestableService();
+
+        var importRunId = await service.RunImportAsync(CancellationToken.None);
+
+        importRunId.Should().BeGreaterThan(0);
+        var run = await _context.DataSourceImportRuns.FindAsync(importRunId);
+        run!.Status.Should().Be(ImportRunStatus.Complete.ToString());
+    }
+
+    [Fact]
+    public async Task RunImportAsync_ZeroSimulatedRows_CompletesWithZeroCount()
+    {
+        SetupDownloaderReturnsPath();
+        var service = CreateTestableService(simulatedRows: 0);
+
+        var importRunId = await service.RunImportAsync(CancellationToken.None);
+
+        var run = await _context.DataSourceImportRuns.FindAsync(importRunId);
+        run!.RowsImported.Should().Be(0);
+        run.Status.Should().Be(ImportRunStatus.Complete.ToString());
+    }
+
+    [Fact]
+    public async Task RunImportAsync_VeryLargeRowCount_TrackedCorrectly()
+    {
+        SetupDownloaderReturnsPath();
+        var service = CreateTestableService(simulatedRows: 50_000_000);
+
+        var importRunId = await service.RunImportAsync(CancellationToken.None);
+
+        var run = await _context.DataSourceImportRuns.FindAsync(importRunId);
+        run!.RowsImported.Should().Be(50_000_000);
+    }
+
+    [Fact]
+    public async Task ImportToStagingTablesAsync_AkasFailure_Propagates()
+    {
+        var akas = new List<ImdbTitleAkasStaging> { CreateAkasEntity() };
+
+        var fakeParser = new FakeImdbDatasetParser(
+            NullLogger<ImdbDatasetParser>.Instance,
+            akasChunks: [akas]);
+
+        _stagingRepo.BulkInsertAkasAsync(Arg.Any<List<ImdbTitleAkasStaging>>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Akas insert failed"));
+
+        var harness = CreateHarness(fakeParser);
+        var importRun = await CreateImportRunAsync();
+
+        await harness.Invoking(h => h.CallImportToStagingTablesAsync("a", "b", "c", "d", importRun, CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Akas insert failed");
+    }
+
+    [Fact]
+    public async Task ImportToStagingTablesAsync_EpisodeFailure_Propagates()
+    {
+        var episodes = new List<ImdbTitleEpisodeStaging> { CreateEpisodeEntity() };
+
+        var fakeParser = new FakeImdbDatasetParser(
+            NullLogger<ImdbDatasetParser>.Instance,
+            episodeChunks: [episodes]);
+
+        _stagingRepo.BulkInsertEpisodeAsync(Arg.Any<List<ImdbTitleEpisodeStaging>>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Episode insert failed"));
+
+        var harness = CreateHarness(fakeParser);
+        var importRun = await CreateImportRunAsync();
+
+        await harness.Invoking(h => h.CallImportToStagingTablesAsync("a", "b", "c", "d", importRun, CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Episode insert failed");
+    }
+
+    [Fact]
+    public async Task ImportToStagingTablesAsync_RatingsFailure_Propagates()
+    {
+        var ratings = new List<ImdbTitleRatingsStaging> { CreateRatingsEntity() };
+
+        var fakeParser = new FakeImdbDatasetParser(
+            NullLogger<ImdbDatasetParser>.Instance,
+            ratingsChunks: [ratings]);
+
+        _stagingRepo.BulkInsertRatingsAsync(Arg.Any<List<ImdbTitleRatingsStaging>>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Ratings insert failed"));
+
+        var harness = CreateHarness(fakeParser);
+        var importRun = await CreateImportRunAsync();
+
+        await harness.Invoking(h => h.CallImportToStagingTablesAsync("a", "b", "c", "d", importRun, CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Ratings insert failed");
+    }
+
+    [Fact]
+    public async Task ImportToStagingTablesAsync_AllDatasetsMultipleChunks()
+    {
+        var basics1 = new List<ImdbTitleBasicsStaging> { CreateBasicsEntity("tt0000001") };
+        var basics2 = new List<ImdbTitleBasicsStaging> { CreateBasicsEntity("tt0000002") };
+        var akas1 = new List<ImdbTitleAkasStaging> { CreateAkasEntity() };
+        var akas2 = new List<ImdbTitleAkasStaging> { new() { Tconst = "tt0000002", Ordering = 2, Title = "Alt", Region = "DE", Language = "de", IsOriginalTitle = false } };
+        var episodes1 = new List<ImdbTitleEpisodeStaging> { CreateEpisodeEntity() };
+        var episodes2 = new List<ImdbTitleEpisodeStaging> { new() { Tconst = "tt0000003", ParentTconst = "tt0000002", SeasonNumber = 2, EpisodeNumber = 1 } };
+        var ratings1 = new List<ImdbTitleRatingsStaging> { CreateRatingsEntity() };
+        var ratings2 = new List<ImdbTitleRatingsStaging> { new() { Tconst = "tt0000002", AverageRating = 9.0m, NumVotes = 3000 } };
+
+        var fakeParser = new FakeImdbDatasetParser(
+            NullLogger<ImdbDatasetParser>.Instance,
+            basicsChunks: [basics1, basics2],
+            akasChunks: [akas1, akas2],
+            episodeChunks: [episodes1, episodes2],
+            ratingsChunks: [ratings1, ratings2]);
+
+        var harness = CreateHarness(fakeParser);
+        var importRun = await CreateImportRunAsync();
+
+        await harness.CallImportToStagingTablesAsync("a", "b", "c", "d", importRun, CancellationToken.None);
+
+        importRun.RowsImported.Should().Be(2);
+        await _stagingRepo.Received(2).BulkInsertBasicsAsync(Arg.Any<List<ImdbTitleBasicsStaging>>(), Arg.Any<CancellationToken>());
+        await _stagingRepo.Received(2).BulkInsertAkasAsync(Arg.Any<List<ImdbTitleAkasStaging>>(), Arg.Any<CancellationToken>());
+        await _stagingRepo.Received(2).BulkInsertEpisodeAsync(Arg.Any<List<ImdbTitleEpisodeStaging>>(), Arg.Any<CancellationToken>());
+        await _stagingRepo.Received(2).BulkInsertRatingsAsync(Arg.Any<List<ImdbTitleRatingsStaging>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportToStagingTablesAsync_ProgressSavedAtEnd_EvenWithoutMilestone()
+    {
+        // 250 rows — doesn't hit 500k milestone, but progress is still saved
+        var chunk = Enumerable.Range(0, 250)
+            .Select(i => CreateBasicsEntity($"tt{i:D7}")).ToList();
+
+        var fakeParser = new FakeImdbDatasetParser(
+            NullLogger<ImdbDatasetParser>.Instance,
+            basicsChunks: [chunk]);
+
+        var harness = CreateHarness(fakeParser);
+        var importRun = await CreateImportRunAsync();
+
+        await harness.CallImportToStagingTablesAsync("a", "b", "c", "d", importRun, CancellationToken.None);
+
+        importRun.RowsImported.Should().Be(250);
+    }
+
     public void Dispose()
     {
         _context.Dispose();
