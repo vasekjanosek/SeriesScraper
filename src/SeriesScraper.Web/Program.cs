@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Components.Web;
 using Serilog;
 using SeriesScraper.Application.Services;
 using SeriesScraper.Domain.Interfaces;
+using SeriesScraper.Infrastructure.Data;
 using SeriesScraper.Infrastructure.Repositories;
 using SeriesScraper.Infrastructure.Services;
+using SeriesScraper.Infrastructure.Services.Imdb;
 using SeriesScraper.Web.BackgroundServices;
 using SeriesScraper.Web.Data;
 using SeriesScraper.Web.Logging;
@@ -39,6 +41,15 @@ try
     // Scoped services
     builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();
     builder.Services.AddScoped<IScrapeRunRepository, ScrapeRunRepository>();
+
+    // IMDB matching engine
+    builder.Services.AddSingleton<ITitleNormalizer, TitleNormalizer>();
+    builder.Services.AddScoped<IMediaTitleRepository, MediaTitleRepository>();
+    builder.Services.AddScoped<IMediaEpisodeRepository, MediaEpisodeRepository>();
+    builder.Services.AddScoped<IMediaRatingRepository, MediaRatingRepository>();
+    builder.Services.AddScoped<IImdbTitleDetailsRepository, ImdbTitleDetailsRepository>();
+    builder.Services.AddScoped<IMetadataSource, ImdbMetadataSource>();
+    builder.Services.AddScoped<IImdbMatchingService, ImdbMatchingService>();
 
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
