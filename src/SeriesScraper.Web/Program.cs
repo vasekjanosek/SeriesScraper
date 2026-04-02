@@ -6,6 +6,7 @@ using SeriesScraper.Application.Services;
 using SeriesScraper.Domain.Interfaces;
 using SeriesScraper.Infrastructure.Data;
 using SeriesScraper.Infrastructure.Repositories;
+using SeriesScraper.Infrastructure.BackgroundServices;
 using SeriesScraper.Infrastructure.Services;
 using SeriesScraper.Infrastructure.Services.Imdb;
 using SeriesScraper.Web.BackgroundServices;
@@ -99,8 +100,9 @@ try
     builder.Services.AddScoped<ISettingRepository, SettingRepository>();
     builder.Services.AddScoped<IDataSourceImportRunRepository, DataSourceImportRunRepository>();
 
-    // Background service
+    // Background services
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
+    builder.Services.AddHostedService<ForumStructureRefreshService>();
 
     // Security services (#45, #46)
     builder.Services.AddSingleton<ISanitizer, HtmlContentSanitizer>();
