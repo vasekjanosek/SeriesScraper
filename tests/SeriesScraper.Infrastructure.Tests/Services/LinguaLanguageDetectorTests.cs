@@ -76,4 +76,55 @@ public class LinguaLanguageDetectorTests
         result.Should().NotBeNull();
         result.Should().MatchRegex("^[a-z]{2}$");
     }
+
+    [Theory]
+    [InlineData("12345678")]
+    [InlineData("!@#$%^&*()")]
+    [InlineData("+++---===")]
+    [InlineData(".,;:!?")]
+    public void DetectLanguage_NonAlphabeticInput_ReturnsNull(string input)
+    {
+        var result = _sut.DetectLanguage(input);
+
+        result.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("x")]
+    public void DetectLanguage_VeryShortText_ReturnsNullOrValid(string input)
+    {
+        var result = _sut.DetectLanguage(input);
+
+        // Very short text should either return null (Unknown) or a valid 2-char ISO code
+        if (result != null)
+            result.Should().MatchRegex("^[a-z]{2}$");
+    }
+
+    [Fact]
+    public void DetectLanguage_TabsAndNewlines_ReturnsNull()
+    {
+        var result = _sut.DetectLanguage("\t\n\r");
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void DetectLanguage_WhenDetectionCoreThrows_ReturnsNull()
+    {
+        var throwing = new ThrowingLanguageDetector();
+
+        var result = throwing.DetectLanguage("This should not throw outward");
+
+        result.Should().BeNull();
+    }
+
+    private class ThrowingLanguageDetector : LinguaLanguageDetector
+    {
+        protected override string? DetectLanguageCore(string text)
+        {
+            throw new InvalidOperationException("Lingua internal error");
+        }
+    }
 }

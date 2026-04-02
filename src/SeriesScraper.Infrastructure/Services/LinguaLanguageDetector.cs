@@ -19,6 +19,18 @@ public class LinguaLanguageDetector : ILanguageDetector
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
+        try
+        {
+            return DetectLanguageCore(text);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    protected virtual string? DetectLanguageCore(string text)
+    {
         var language = _detector.DetectLanguageOf(text);
 
         if (language == Language.Unknown)
