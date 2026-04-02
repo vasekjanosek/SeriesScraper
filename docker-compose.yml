@@ -88,13 +88,12 @@ services:
   # - TESTCONTAINERS_HOST_OVERRIDE: Allows runner to reach sibling containers
   # - Ryuk: Resource reaper with Docker socket access for cleanup
   github-runner:
-    # Pinned to specific digest for security and reproducibility
-    # Equivalent to: myoung34/github-runner:latest (as of 2026-04-02)
-    # TODO: Update digest monthly from Docker Hub:
-    #   docker pull myoung34/github-runner:latest
-    #   docker inspect myoung34/github-runner:latest | grep -A 5 "RepoDigests"
-    # Current digest is a placeholder — replace with actual SHA256 from Docker Hub
-    image: myoung34/github-runner@sha256:b0a4e7d8c9f1234567890abcdef1234567890abcdef1234567890abcdef123456
+    # Pinned to specific version for security and reproducibility
+    # Version 2.320.0 corresponds to GitHub Actions runner v2.320.0
+    # To pin by digest instead, run:
+    #   docker manifest inspect myoung34/github-runner:2.320.0 | grep digest
+    # Update monthly to track GitHub Actions runner releases
+    image: myoung34/github-runner:2.320.0
     environment:
       # Repository URL for runner registration
       REPO_URL: ${GITHUB_REPO_URL}

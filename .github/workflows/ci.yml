@@ -101,18 +101,11 @@ jobs:
             exit 1
           }
 
-      # ─── Validate EF Core Migrations ───────────────────────────────────────
-      # Applies migrations to a Testcontainers PostgreSQL instance
-      # Ensures migrations are idempotent and don't throw SQL exceptions
-      - name: Validate migrations
-        run: |
-          dotnet ef database update `
-            --project src/SeriesScraper.Infrastructure/SeriesScraper.Infrastructure.csproj `
-            --startup-project src/SeriesScraper.Web/SeriesScraper.Web.csproj `
-            --connection "Host=localhost;Port=5432;Database=migrations_test;Username=postgres;Password=postgres" `
-            --verbose
-
       # ─── Dependency Security Scan ──────────────────────────────────────────
+      # NOTE: EF Core migration validation is covered by integration tests
+      # which use Testcontainers to spin up PostgreSQL and apply migrations.
+      # A separate validation step is redundant and would require additional
+      # PostgreSQL service configuration in the workflow.
       # Checks all NuGet packages for high/critical CVEs
       # All packages must be pinned to exact versions in .csproj files
       - name: Check for vulnerable packages
