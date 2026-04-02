@@ -41,6 +41,12 @@ try
     // Scoped services
     builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();
     builder.Services.AddScoped<IScrapeRunRepository, ScrapeRunRepository>();
+    builder.Services.AddScoped<IForumSectionDiscoveryService, ForumSectionDiscoveryService>();
+    builder.Services.AddScoped<IForumSectionRepository, ForumSectionRepository>();
+
+    // Singleton services
+    builder.Services.AddSingleton<ILanguageDetector, LinguaLanguageDetector>();
+    builder.Services.AddSingleton<IHtmlForumSectionParser, HtmlForumSectionParser>();
 
     // IMDB matching engine
     builder.Services.AddSingleton<ITitleNormalizer, TitleNormalizer>();
