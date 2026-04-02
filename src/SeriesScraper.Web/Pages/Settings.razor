@@ -1,0 +1,257 @@
+@page "/settings"
+@using SeriesScraper.Domain.Entities
+@using SeriesScraper.Domain.Interfaces
+@inject ISettingsService SettingsService
+@inject IAppInfoService AppInfoService
+
+<PageTitle>Settings & Info</PageTitle>
+
+<h3>Settings & Info</h3>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+    @if (_successMessage is not null)
+    {
+        <div class="alert alert-success">@_successMessage</div>
+    }
+
+    <!-- Settings Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Application Settings</h5>
+        </div>
+        <div class="card-body">
+            @if (_settings is not null && _settings.Count > 0)
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th>Description</th>
+                            <th>Last Modified</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var setting in _settings)
+                        {
+                            <tr>
+                                <td><code>@setting.Key</code></td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm"
+                                           value="@GetEditValue(setting.Key)"
+                                           @onchange="(e) => OnSettingChanged(setting.Key, e.Value?.ToString())" />
+                                </td>
+                                <td class="text-muted">@setting.Description</td>
+                                <td>@setting.LastModifiedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn btn-primary" @onclick="SaveSettings" disabled="@(_pendingChanges.Count == 0)">
+                    Save Changes (@_pendingChanges.Count)
+                </button>
+            }
+            else
+            {
+                <div class="text-muted">No settings found.</div>
+            }
+        </div>
+    </div>
+
+    <!-- IMDB Import Status -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">IMDB Import Status</h5>
+        </div>
+        <div class="card-body">
+            @if (_imdbStatus is not null)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Last Import</dt>
+                    <dd class="col-sm-8">@(_imdbStatus.LastImportDate?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</dd>
+
+                    <dt class="col-sm-4">Rows Imported</dt>
+                    <dd class="col-sm-8">@_imdbStatus.RowsImported.ToString("N0")</dd>
+
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">
+                        @if (_imdbStatus.Status is not null)
+                        {
+                            <span class="badge @GetStatusBadgeClass(_imdbStatus.Status)">@_imdbStatus.Status</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">No import run yet</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-4">Next Scheduled</dt>
+                    <dd class="col-sm-8">@(_imdbStatus.NextScheduledRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "—")</dd>
+                </dl>
+            }
+        </div>
+    </div>
+
+    <!-- App Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Application Info</h5>
+        </div>
+        <div class="card-body">
+            @if (_appInfo is not null)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Version</dt>
+                    <dd class="col-sm-8">@_appInfo.Version</dd>
+
+                    <dt class="col-sm-4">Uptime</dt>
+                    <dd class="col-sm-8">@FormatUptime(_appInfo.Uptime)</dd>
+
+                    <dt class="col-sm-4">PostgreSQL</dt>
+                    <dd class="col-sm-8">
+                        @if (_appInfo.DatabaseConnected)
+                        {
+                            <span class="badge bg-success">Connected</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Disconnected</span>
+                        }
+                    </dd>
+                </dl>
+
+                @if (_dbStats is not null && _dbStats.TableCounts.Count > 0)
+                {
+                    <h6 class="mt-3">Database Statistics</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Row Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var table in _dbStats.TableCounts)
+                            {
+                                <tr>
+                                    <td>@table.TableName</td>
+                                    <td>@table.RowCount.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private IReadOnlyList<Setting>? _settings;
+    private ImdbImportStatusDto? _imdbStatus;
+    private AppInfoDto? _appInfo;
+    private DatabaseStatsDto? _dbStats;
+    private readonly Dictionary<string, string> _pendingChanges = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _settings = await SettingsService.GetAllSettingsAsync();
+            _imdbStatus = await SettingsService.GetImdbImportStatusAsync();
+            _appInfo = await AppInfoService.GetAppInfoAsync();
+            _dbStats = await AppInfoService.GetDatabaseStatsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetEditValue(string key)
+    {
+        return _pendingChanges.TryGetValue(key, out var val) ? val : _settings?.FirstOrDefault(s => s.Key == key)?.Value ?? "";
+    }
+
+    private void OnSettingChanged(string key, string? newValue)
+    {
+        if (newValue is null) return;
+
+        var original = _settings?.FirstOrDefault(s => s.Key == key)?.Value;
+        if (newValue == original)
+            _pendingChanges.Remove(key);
+        else
+            _pendingChanges[key] = newValue;
+    }
+
+    private async Task SaveSettings()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            foreach (var (key, value) in _pendingChanges)
+            {
+                await SettingsService.UpdateSettingAsync(key, value);
+            }
+
+            _successMessage = $"Saved {_pendingChanges.Count} setting(s).";
+            _pendingChanges.Clear();
+
+            // Reload to show updated LastModifiedAt
+            _settings = await SettingsService.GetAllSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to save: {ex.Message}";
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Complete" => "bg-success",
+        "Running" => "bg-primary",
+        "Failed" => "bg-danger",
+        "Partial" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string FormatUptime(TimeSpan uptime)
+    {
+        if (uptime.TotalDays >= 1)
+            return $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m";
+        if (uptime.TotalHours >= 1)
+            return $"{(int)uptime.TotalHours}h {uptime.Minutes}m";
+        return $"{(int)uptime.TotalMinutes}m {uptime.Seconds}s";
+    }
+}
