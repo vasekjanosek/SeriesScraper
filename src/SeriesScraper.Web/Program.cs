@@ -92,6 +92,13 @@ try
     builder.Services.AddScoped<IRunProgressService, RunProgressService>();
     builder.Services.AddScoped<IScrapeRunItemRepository, ScrapeRunItemRepository>();
 
+    // Settings & App Info services (#34, #36)
+    builder.Services.AddScoped<ISettingsService, SettingsService>();
+    builder.Services.AddScoped<IAppInfoService, AppInfoService>();
+    builder.Services.AddScoped<IDatabaseStatsProvider, DatabaseStatsProvider>();
+    builder.Services.AddScoped<ISettingRepository, SettingRepository>();
+    builder.Services.AddScoped<IDataSourceImportRunRepository, DataSourceImportRunRepository>();
+
     // Background service
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
 

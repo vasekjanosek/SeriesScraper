@@ -1,3 +1,5 @@
+using SeriesScraper.Domain.Entities;
+
 namespace SeriesScraper.Domain.Interfaces;
 
 /// <summary>
@@ -6,4 +8,6 @@ namespace SeriesScraper.Domain.Interfaces;
 public interface ISettingRepository
 {
     Task<string?> GetValueAsync(string key, CancellationToken ct = default);
+    Task<IReadOnlyList<Setting>> GetAllAsync(CancellationToken ct = default);
+    Task UpdateAsync(string key, string value, CancellationToken ct = default);
 }
