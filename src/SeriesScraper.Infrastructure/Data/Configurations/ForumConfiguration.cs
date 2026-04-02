@@ -28,7 +28,7 @@ public class ForumConfiguration : IEntityTypeConfiguration<Forum>
         
         entity.Property(e => e.CredentialKey)
             .IsRequired()
-            .HasMaxLength(200);
+            .HasMaxLength(100);
         
         entity.Property(e => e.CrawlDepth)
             .HasDefaultValue(1);
