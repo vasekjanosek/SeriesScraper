@@ -406,4 +406,70 @@ public class ForumSectionDiscoveryServiceTests
         result[0].LastCrawledAt.Should().NotBeNull();
         result[0].LastCrawledAt!.Value.Should().BeOnOrAfter(beforeTest);
     }
+
+    // ── Content Type Classification (AC#3) ─────────────────────────────────
+
+    [Theory]
+    [InlineData("TV Series", 1)]
+    [InlineData("Seriál CZ/SK", 1)]
+    [InlineData("TV Show Downloads", 1)]
+    [InlineData("Movies", 2)]
+    [InlineData("Film CZ", 2)]
+    [InlineData("Games", 3)]
+    [InlineData("Software", 3)]
+    [InlineData("", 3)]
+    public void ClassifyContentType_ReturnsCorrectId(string sectionName, int expectedId)
+    {
+        ForumSectionDiscoveryService.ClassifyContentType(sectionName)
+            .Should().Be(expectedId);
+    }
+
+    [Fact]
+    public async Task DiscoverSectionsAsync_NewSection_SetsContentTypeFromName()
+    {
+        var forum = CreateForum();
+        var voTv = new ForumSectionVO { Url = "https://forum.example.com/f1", Name = "TV Series HD", Depth = 1 };
+        var voMovie = new ForumSectionVO { Url = "https://forum.example.com/f2", Name = "Movies 4K", Depth = 1 };
+        var voOther = new ForumSectionVO { Url = "https://forum.example.com/f3", Name = "Games", Depth = 1 };
+
+        _forumScraper.EnumerateSectionsAsync(forum.BaseUrl, forum.CrawlDepth, Arg.Any<CancellationToken>())
+            .Returns(ToAsyncEnumerable(voTv, voMovie, voOther));
+        _repository.GetByForumIdAsync(forum.ForumId, Arg.Any<CancellationToken>())
+            .Returns(new List<ForumSection>());
+        _languageDetector.DetectLanguage(Arg.Any<string>()).Returns("en");
+
+        var sectionId = 1;
+        _repository.AddAsync(Arg.Any<ForumSection>(), Arg.Any<CancellationToken>())
+            .Returns(ci => { var s = ci.ArgAt<ForumSection>(0); s.SectionId = sectionId++; return s; });
+
+        var result = await _sut.DiscoverSectionsAsync(forum);
+
+        result[0].ContentTypeId.Should().Be(1); // TV Series
+        result[1].ContentTypeId.Should().Be(2); // Movie
+        result[2].ContentTypeId.Should().Be(3); // Other
+    }
+
+    [Fact]
+    public async Task DiscoverSectionsAsync_ExistingSection_UpdatesContentType()
+    {
+        var forum = CreateForum();
+        var vo = new ForumSectionVO { Url = "https://forum.example.com/f1", Name = "Film HD", Depth = 1 };
+
+        _forumScraper.EnumerateSectionsAsync(forum.BaseUrl, forum.CrawlDepth, Arg.Any<CancellationToken>())
+            .Returns(ToAsyncEnumerable(vo));
+
+        var existing = new ForumSection
+        {
+            SectionId = 10, ForumId = forum.ForumId,
+            Url = "https://forum.example.com/f1", Name = "Movies",
+            ContentTypeId = null, IsActive = true
+        };
+        _repository.GetByForumIdAsync(forum.ForumId, Arg.Any<CancellationToken>())
+            .Returns(new List<ForumSection> { existing });
+        _languageDetector.DetectLanguage(Arg.Any<string>()).Returns("en");
+
+        await _sut.DiscoverSectionsAsync(forum);
+
+        existing.ContentTypeId.Should().Be(2); // Movie (from "Film HD")
+    }
 }

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Interfaces;
@@ -7,6 +8,21 @@ namespace SeriesScraper.Application.Services;
 
 public class ForumSectionDiscoveryService : IForumSectionDiscoveryService
 {
+    // Seeded ContentType IDs from ContentTypeConfiguration
+    private const int ContentTypeTvSeries = 1;
+    private const int ContentTypeMovie = 2;
+    private const int ContentTypeOther = 3;
+
+    private static readonly Regex TvSeriesPattern = new(
+        @"\b(series|tv|seriály?|shows?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(1));
+
+    private static readonly Regex MoviePattern = new(
+        @"\b(movies?|films?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(1));
+
     private readonly IForumScraper _forumScraper;
     private readonly IForumSectionRepository _repository;
     private readonly ILanguageDetector _languageDetector;
@@ -22,6 +38,15 @@ public class ForumSectionDiscoveryService : IForumSectionDiscoveryService
         _repository = repository;
         _languageDetector = languageDetector;
         _logger = logger;
+    }
+
+    internal static int ClassifyContentType(string sectionName)
+    {
+        if (TvSeriesPattern.IsMatch(sectionName))
+            return ContentTypeTvSeries;
+        if (MoviePattern.IsMatch(sectionName))
+            return ContentTypeMovie;
+        return ContentTypeOther;
     }
 
     public async Task<IReadOnlyList<ForumSection>> DiscoverSectionsAsync(
@@ -61,12 +86,15 @@ public class ForumSectionDiscoveryService : IForumSectionDiscoveryService
             discoveredUrls.Add(vo.Url);
             var detectedLanguage = _languageDetector.DetectLanguage(vo.Name);
 
+            var contentTypeId = ClassifyContentType(vo.Name);
+
             if (existingByUrl.TryGetValue(vo.Url, out var existing))
             {
                 // Update existing section
                 existing.Name = vo.Name;
                 existing.IsActive = true;
                 existing.DetectedLanguage = detectedLanguage;
+                existing.ContentTypeId = contentTypeId;
                 existing.LastCrawledAt = DateTime.UtcNow;
                 await _repository.UpdateAsync(existing, ct);
                 result.Add(existing);
@@ -94,6 +122,7 @@ public class ForumSectionDiscoveryService : IForumSectionDiscoveryService
                     Name = vo.Name,
                     ParentSectionId = parentSectionId,
                     DetectedLanguage = detectedLanguage,
+                    ContentTypeId = contentTypeId,
                     IsActive = true,
                     LastCrawledAt = DateTime.UtcNow
                 };
