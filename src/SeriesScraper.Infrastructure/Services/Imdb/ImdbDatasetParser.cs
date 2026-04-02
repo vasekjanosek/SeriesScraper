@@ -22,7 +22,7 @@ public class ImdbDatasetParser
     /// <summary>
     /// Parses title.basics.tsv.gz into chunks of staging entities.
     /// </summary>
-    public async IAsyncEnumerable<List<ImdbTitleBasicsStaging>> ParseTitleBasicsAsync(
+    public virtual async IAsyncEnumerable<List<ImdbTitleBasicsStaging>> ParseTitleBasicsAsync(
         string gzipPath,
         int chunkSize = DefaultChunkSize)
     {
@@ -70,7 +70,7 @@ public class ImdbDatasetParser
     /// <summary>
     /// Parses title.akas.tsv.gz into chunks of staging entities.
     /// </summary>
-    public async IAsyncEnumerable<List<ImdbTitleAkasStaging>> ParseTitleAkasAsync(
+    public virtual async IAsyncEnumerable<List<ImdbTitleAkasStaging>> ParseTitleAkasAsync(
         string gzipPath,
         int chunkSize = DefaultChunkSize)
     {
@@ -115,7 +115,7 @@ public class ImdbDatasetParser
     /// <summary>
     /// Parses title.episode.tsv.gz into chunks of staging entities.
     /// </summary>
-    public async IAsyncEnumerable<List<ImdbTitleEpisodeStaging>> ParseTitleEpisodeAsync(
+    public virtual async IAsyncEnumerable<List<ImdbTitleEpisodeStaging>> ParseTitleEpisodeAsync(
         string gzipPath,
         int chunkSize = DefaultChunkSize)
     {
@@ -160,7 +160,7 @@ public class ImdbDatasetParser
     /// <summary>
     /// Parses title.ratings.tsv.gz into chunks of staging entities.
     /// </summary>
-    public async IAsyncEnumerable<List<ImdbTitleRatingsStaging>> ParseTitleRatingsAsync(
+    public virtual async IAsyncEnumerable<List<ImdbTitleRatingsStaging>> ParseTitleRatingsAsync(
         string gzipPath,
         int chunkSize = DefaultChunkSize)
     {

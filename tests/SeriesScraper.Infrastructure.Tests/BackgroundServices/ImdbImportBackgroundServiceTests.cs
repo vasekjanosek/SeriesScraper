@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using SeriesScraper.Domain.Entities;
+using SeriesScraper.Domain.Interfaces;
 using SeriesScraper.Infrastructure.BackgroundServices;
 using SeriesScraper.Infrastructure.Data;
 using SeriesScraper.Infrastructure.Services.Imdb;
@@ -23,9 +24,10 @@ public class ImdbImportBackgroundServiceTests : IDisposable
         var downloader = Substitute.ForPartsOf<ImdbDatasetDownloader>(
             new HttpClient(), NullLogger<ImdbDatasetDownloader>.Instance);
         var parser = new ImdbDatasetParser(NullLogger<ImdbDatasetParser>.Instance);
+        var stagingRepo = Substitute.For<IImdbStagingRepository>();
 
         _mockImportService = Substitute.ForPartsOf<ImdbImportService>(
-            context, downloader, parser, NullLogger<ImdbImportService>.Instance);
+            context, downloader, parser, stagingRepo, NullLogger<ImdbImportService>.Instance);
     }
 
     [Fact]
