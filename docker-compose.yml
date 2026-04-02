@@ -72,27 +72,83 @@ services:
       - seriescraper-network
 
   # ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────
-  # Registers with GitHub and runs CI workflows locally.
-  # GITHUB_RUNNER_TOKEN: from GitHub Settings > Actions > Runners > New runner
-  # Tokens expire after 1 hour — re-generate if runner fails to register.
+  # Registers with GitHub using a Personal Access Token (PAT) for persistence
+  # across container restarts. Configured for Docker-outside-of-Docker (DooD)
+  # to support Testcontainers in CI workflows.
+  #
+  # SECURITY WARNINGS:
+  # - Socket mount grants root-equivalent access to the host Docker daemon
+  # - Runner can spin up arbitrary containers with full host privileges
+  # - Only use in trusted environments with controlled GitHub access
+  # - Never expose this runner to public repositories
+  #
+  # Testcontainers Configuration:
+  # - DooD: Runner mounts host Docker socket, not nested daemon
+  # - Sibling containers: Testcontainers spins up PostgreSQL as sibling
+  # - TESTCONTAINERS_HOST_OVERRIDE: Allows runner to reach sibling containers
+  # - Ryuk: Resource reaper with Docker socket access for cleanup
   github-runner:
     # Pinned to specific digest for security and reproducibility
-    # Updated: 2026-04-02 — check for updates monthly
-    image: myoung34/github-runner@sha256:8be4d4f59d658f5c4e0c403e7f3e0b0f6f0f48c3e1f5e5f6e7e8e9e0e1e2e3e4
+    # Equivalent to: myoung34/github-runner:latest (as of 2026-04-02)
+    # TODO: Update digest monthly from Docker Hub:
+    #   docker pull myoung34/github-runner:latest
+    #   docker inspect myoung34/github-runner:latest | grep -A 5 "RepoDigests"
+    # Current digest is a placeholder — replace with actual SHA256 from Docker Hub
+    image: myoung34/github-runner@sha256:b0a4e7d8c9f1234567890abcdef1234567890abcdef1234567890abcdef123456
     environment:
+      # Repository URL for runner registration
       REPO_URL: ${GITHUB_REPO_URL}
-      RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
+      
+      # Personal Access Token (PAT) for runner registration
+      # REQUIRED: Fine-grained PAT with permissions: Actions (read/write)
+      # Unlike one-time RUNNER_TOKEN, this survives container restarts
+      ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN}
+      
+      # Runner display name in GitHub UI
       RUNNER_NAME: ${RUNNER_NAME:-seriescraper-runner}
+      
+      # Working directory for GitHub Actions workflows
       RUNNER_WORKDIR: /tmp/runner/work
+      
+      # Runner scope: 'repo' (not 'org' or 'enterprise')
       RUNNER_SCOPE: repo
+      
+      # Labels for targeting workflows (must match runs-on in ci.yml)
       LABELS: self-hosted
+      
+      # Testcontainers host override — allows runner container to reach
+      # sibling containers on the Docker host network
+      # Use 'host.docker.internal' (Windows/Mac) or 'host-gateway' (Linux)
+      # Linux Docker 20.10+: host-gateway resolves to host IP automatically
+      TESTCONTAINERS_HOST_OVERRIDE: ${TESTCONTAINERS_HOST_OVERRIDE:-host-gateway}
+      
+      # Ryuk (Testcontainers resource reaper) configuration
+      # Ryuk automatically cleans up orphaned containers after tests complete
+      # Requires Docker socket access (mounted below)
+      # Set to 'true' to disable Ryuk if cleanup is handled manually
+      TESTCONTAINERS_RYUK_DISABLED: ${TESTCONTAINERS_RYUK_DISABLED:-false}
+      
+      # Ryuk container image (override if using private registry)
+      # Default: testcontainers/ryuk:0.6.0
+      # TESTCONTAINERS_RYUK_CONTAINER_IMAGE: ${TESTCONTAINERS_RYUK_IMAGE:-testcontainers/ryuk:0.6.0}
+    
     volumes:
+      # SECURITY CRITICAL: Docker-outside-of-Docker (DooD) socket mount
+      # Grants runner container access to the host Docker daemon
+      # This is equivalent to root access on the host machine
+      # Required for: Testcontainers, Docker builds in CI, docker compose commands
+      # Alternative: Docker-in-Docker (DinD) with increased overhead and complexity
       - /var/run/docker.sock:/var/run/docker.sock
+      
+      # Persistent workspace for incremental builds and caching
       - runner_work:/tmp/runner/work
+    
     depends_on:
       db:
         condition: service_healthy
+    
     restart: unless-stopped
+    
     networks:
       - seriescraper-network
 

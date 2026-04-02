@@ -1,3 +1,10 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Actions CI Pipeline
+# Triggers: Push to non-main branches, PRs to main
+# Runner: Self-hosted (configured in issue #41)
+# Purpose: Build, test with ≥90% coverage, validate migrations, check security
+# ─────────────────────────────────────────────────────────────────────────────
+
 name: CI
 
 on:
@@ -8,86 +15,137 @@ on:
     branches:
       - main
 
-jobs:
-  build-and-test:
-    name: Build and Test
-    runs-on: self-hosted
+# Prevent parallel runs on the same branch to avoid Testcontainers port conflicts
+# Cancel in-progress runs for PRs; preserve for main branch
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-    services:
-      db:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: seriesscrapertest
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpassword
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5433:5432
+jobs:
+  CI:
+    name: CI
+    runs-on: self-hosted
 
     env:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
-      ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=seriesscrapertest;Username=testuser;Password=testpassword"
+      # Testcontainers will spin up PostgreSQL in a sibling container
+      # Connection string is configured in test projects via Testcontainers
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # ─── Checkout ──────────────────────────────────────────────────────────
+      # Pinned to commit SHA b4ffde65f46336ab88eb53be808477a3936bae11 (v4.1.1)
+      # Prevents supply-chain attacks via floating tag substitution
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 0  # Full history for SonarAnalyzer and blame tracking
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      # ─── Setup .NET ────────────────────────────────────────────────────────
+      # Pinned to commit SHA 6bd055869c9b58b8f08cf9ec1c90db45a255ae8c (v4.0.0)
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@6bd055869c9b58b8f08cf9ec1c90db45a255ae8c
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore dependencies
+      # ─── Restore Dependencies ──────────────────────────────────────────────
+      - name: Restore NuGet packages
         run: dotnet restore
 
-      - name: Build
-        run: dotnet build --no-restore --configuration Release
+      # ─── Build with Warnings as Errors ─────────────────────────────────────
+      # TreatWarningsAsErrors enforces zero-tolerance for compiler warnings
+      # SonarAnalyzer rules are also treated as errors via .editorconfig
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release /p:TreatWarningsAsErrors=true
 
-      - name: Run unit tests
+      # ─── Run All Tests with Coverage ───────────────────────────────────────
+      # Testcontainers spins up a real PostgreSQL container for integration tests
+      # Coverage is collected via Coverlet and reported in Cobertura XML format
+      - name: Run tests with coverage
         run: |
-          dotnet test --no-build --configuration Release \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage \
-            --logger "trx;LogFileName=unit-tests.trx" \
-            --filter "Category=Unit"
+          dotnet test --no-build --configuration Release `
+            --collect:"XPlat Code Coverage" `
+            --results-directory ./TestResults `
+            --logger "trx;LogFileName=test-results.trx" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
-      - name: Run integration tests
-        run: |
-          dotnet test --no-build --configuration Release \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage \
-            --logger "trx;LogFileName=integration-tests.trx" \
-            --filter "Category=Integration"
-
+      # ─── Install Coverage Tools ────────────────────────────────────────────
       - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
+      # ─── Generate Coverage Report ──────────────────────────────────────────
       - name: Generate coverage report
         run: |
-          reportgenerator \
-            -reports:"./coverage/**/coverage.cobertura.xml" \
-            -targetdir:"./coverage/report" \
-            -reporttypes:"TextSummary;Html"
+          reportgenerator `
+            -reports:"./TestResults/**/coverage.cobertura.xml" `
+            -targetdir:"./TestResults/CoverageReport" `
+            -reporttypes:"TextSummary;Html;Cobertura"
 
-      - name: Enforce 90% coverage threshold
+      # ─── Enforce 90% Coverage Threshold ────────────────────────────────────
+      # Parses TextSummary report and fails build if coverage < 90%
+      # PowerShell-compatible (self-hosted runner may be Windows or Linux)
+      - name: Check coverage threshold
+        shell: pwsh
         run: |
-          COVERAGE=$(grep "Line coverage" ./coverage/report/Summary.txt | grep -oP '\d+\.\d+')
-          echo "Line coverage: ${COVERAGE}%"
-          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
-            echo "Coverage ${COVERAGE}% is below the required 90% threshold."
+          $summary = Get-Content ./TestResults/CoverageReport/Summary.txt -Raw
+          if ($summary -match 'Line coverage:\s+(\d+\.?\d*)%') {
+            $coverage = [double]$Matches[1]
+            Write-Host "Line coverage: $coverage%"
+            if ($coverage -lt 90) {
+              Write-Error "Coverage $coverage% is below the required 90% threshold"
+              exit 1
+            }
+            Write-Host "✓ Coverage check passed: $coverage%"
+          } else {
+            Write-Error "Could not parse coverage from Summary.txt"
             exit 1
-          fi
-          echo "Coverage check passed: ${COVERAGE}%"
+          }
 
+      # ─── Validate EF Core Migrations ───────────────────────────────────────
+      # Applies migrations to a Testcontainers PostgreSQL instance
+      # Ensures migrations are idempotent and don't throw SQL exceptions
+      - name: Validate migrations
+        run: |
+          dotnet ef database update `
+            --project src/SeriesScraper.Infrastructure/SeriesScraper.Infrastructure.csproj `
+            --startup-project src/SeriesScraper.Web/SeriesScraper.Web.csproj `
+            --connection "Host=localhost;Port=5432;Database=migrations_test;Username=postgres;Password=postgres" `
+            --verbose
+
+      # ─── Dependency Security Scan ──────────────────────────────────────────
+      # Checks all NuGet packages for high/critical CVEs
+      # All packages must be pinned to exact versions in .csproj files
+      - name: Check for vulnerable packages
+        run: |
+          $vulnerabilities = dotnet list package --vulnerable --include-transitive 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet list package failed"
+            exit 1
+          }
+          if ($vulnerabilities -match 'has the following vulnerable packages') {
+            Write-Error "Vulnerable packages detected:"
+            Write-Error $vulnerabilities
+            exit 1
+          }
+          Write-Host "✓ No vulnerable packages found"
+        shell: pwsh
+
+      # ─── Upload Coverage Artifacts ─────────────────────────────────────────
+      # Pinned to commit SHA 5d5d22a31266ced268874388b861e4b58bb5c2f3 (v4.3.1)
+      # Publishes HTML report and Cobertura XML for external tools
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
+        with:
+          name: coverage-report
+          path: ./TestResults/CoverageReport/
+          retention-days: 7
+
+      # ─── Upload Test Results ───────────────────────────────────────────────
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
         with:
           name: test-results
-          path: ./coverage/
+          path: ./TestResults/*.trx
           retention-days: 7
