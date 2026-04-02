@@ -14,17 +14,20 @@ public class ForumPostScraper : IForumPostScraper
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumScraper _forumScraper;
     private readonly ILinkExtractorService _linkExtractor;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ForumPostScraper> _logger;
 
     public ForumPostScraper(
         IForumSessionManager sessionManager,
         IForumScraper forumScraper,
         ILinkExtractorService linkExtractor,
+        IUrlValidator urlValidator,
         ILogger<ForumPostScraper> logger)
     {
         _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
         _forumScraper = forumScraper ?? throw new ArgumentNullException(nameof(forumScraper));
         _linkExtractor = linkExtractor ?? throw new ArgumentNullException(nameof(linkExtractor));
+        _urlValidator = urlValidator ?? throw new ArgumentNullException(nameof(urlValidator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -34,6 +37,12 @@ public class ForumPostScraper : IForumPostScraper
         ArgumentNullException.ThrowIfNull(forum);
         if (string.IsNullOrWhiteSpace(postUrl))
             return PostScrapeResult.Failed(postUrl ?? string.Empty, "Post URL is null or empty");
+
+        if (!_urlValidator.IsUrlSafe(postUrl, out var reason))
+        {
+            _logger.LogWarning("Post URL blocked by security policy: {PostUrl} — {Reason}", postUrl, reason);
+            return PostScrapeResult.Failed(postUrl, $"URL blocked: {reason}");
+        }
 
         try
         {

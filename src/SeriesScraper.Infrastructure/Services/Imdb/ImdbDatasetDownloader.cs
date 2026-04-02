@@ -20,6 +20,21 @@ public class ImdbDatasetDownloader
     private const int MinRowsEpisode = 7_000_000;   // title.episode has ~7M+ rows
     private const int MinRowsRatings = 1_000_000;   // title.ratings has ~1M+ rows
     
+    /// <summary>
+    /// Allowlist of known IMDB dataset filenames.
+    /// Rejects any datasetName not in this set to prevent path traversal.
+    /// </summary>
+    private static readonly HashSet<string> AllowedDatasetNames = new(StringComparer.Ordinal)
+    {
+        "title.basics.tsv.gz",
+        "title.akas.tsv.gz",
+        "title.episode.tsv.gz",
+        "title.ratings.tsv.gz",
+        "title.crew.tsv.gz",
+        "title.principals.tsv.gz",
+        "name.basics.tsv.gz"
+    };
+    
     public ImdbDatasetDownloader(HttpClient httpClient, ILogger<ImdbDatasetDownloader> logger)
     {
         _httpClient = httpClient;
@@ -32,9 +47,12 @@ public class ImdbDatasetDownloader
     /// <param name="datasetName">Dataset filename (e.g., "title.basics.tsv.gz")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Path to the downloaded temp file</returns>
+    /// <exception cref="ArgumentException">Thrown if datasetName is not a known IMDB dataset</exception>
     /// <exception cref="InvalidDataException">Thrown if download validation fails</exception>
     public virtual async Task<string> DownloadDatasetAsync(string datasetName, CancellationToken cancellationToken)
     {
+        ValidateDatasetName(datasetName);
+        
         var url = $"{BaseUrl}/{datasetName}";
         _logger.LogInformation("Starting download of {DatasetName} from {Url}", datasetName, url);
         
@@ -59,18 +77,34 @@ public class ImdbDatasetDownloader
             
             return tempPath;
         }
-        catch (Exception ex) when (ex is not InvalidDataException)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Failed to download {DatasetName}", datasetName);
-            
-            // Clean up temp file on error
+            // Clean up temp file on ALL error paths (including InvalidDataException)
             if (File.Exists(tempPath))
             {
-                File.Delete(tempPath);
+                try { File.Delete(tempPath); }
+                catch (IOException) { /* best-effort cleanup */ }
             }
             
             throw;
         }
+    }
+    
+    /// <summary>
+    /// Validates that datasetName is a known IMDB dataset and contains no path separators.
+    /// Prevents path traversal attacks (e.g., "../../etc/passwd").
+    /// </summary>
+    internal static void ValidateDatasetName(string datasetName)
+    {
+        if (string.IsNullOrWhiteSpace(datasetName))
+            throw new ArgumentException("Dataset name cannot be null or empty.", nameof(datasetName));
+        
+        if (datasetName.IndexOfAny(new[] { '/', '\\' }) >= 0 ||
+            datasetName.Contains("..", StringComparison.Ordinal))
+            throw new ArgumentException($"Dataset name contains invalid path characters: '{datasetName}'", nameof(datasetName));
+        
+        if (!AllowedDatasetNames.Contains(datasetName))
+            throw new ArgumentException($"Unknown IMDB dataset: '{datasetName}'. Allowed: {string.Join(", ", AllowedDatasetNames)}", nameof(datasetName));
     }
     
     /// <summary>

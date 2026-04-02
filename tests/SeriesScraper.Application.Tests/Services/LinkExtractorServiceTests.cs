@@ -307,4 +307,51 @@ public class LinkExtractorServiceTests
         s.Should().BeNull();
         e.Should().BeNull();
     }
+
+    // ── #67: URL length validation ────────────────────────────
+
+    [Fact]
+    public async Task ExtractLinksAsync_UrlExceedsMaxLength_SkipsLink()
+    {
+        var longUrl = "https://example.com/" + new string('a', 2000);
+        longUrl.Length.Should().BeGreaterThan(LinkExtractorService.MaxUrlLength);
+
+        var html = $"""<a href="{longUrl}">Long</a>""";
+
+        var result = await _sut.ExtractLinksAsync(html, 1, "https://forum.example.com/post/1");
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExtractLinksAsync_UrlExactlyAtMaxLength_IncludesLink()
+    {
+        // Create a URL that is exactly MaxUrlLength characters
+        var baseUrl = "https://example.com/";
+        var longUrl = baseUrl + new string('a', LinkExtractorService.MaxUrlLength - baseUrl.Length);
+        longUrl.Length.Should().Be(LinkExtractorService.MaxUrlLength);
+
+        var html = $"""<a href="{longUrl}">Exact</a>""";
+
+        var result = await _sut.ExtractLinksAsync(html, 1, "https://forum.example.com/post/1");
+
+        result.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task ExtractLinksAsync_MixedLengthUrls_SkipsOnlyLongOnes()
+    {
+        var shortUrl = "https://example.com/short.zip";
+        var longUrl = "https://example.com/" + new string('x', 2000);
+
+        var html = $"""
+            <a href="{shortUrl}">Short</a>
+            <a href="{longUrl}">Long</a>
+            """;
+
+        var result = await _sut.ExtractLinksAsync(html, 1, "https://forum.example.com/post/1");
+
+        result.Should().HaveCount(1);
+        result[0].Url.Should().Be(shortUrl);
+    }
 }

@@ -14,6 +14,7 @@ public class ForumPostScraperTests
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumScraper _forumScraper;
     private readonly ILinkExtractorService _linkExtractor;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ForumPostScraper> _logger;
     private readonly ForumPostScraper _sut;
 
@@ -31,12 +32,21 @@ public class ForumPostScraperTests
         _sessionManager = Substitute.For<IForumSessionManager>();
         _forumScraper = Substitute.For<IForumScraper>();
         _linkExtractor = Substitute.For<ILinkExtractorService>();
+        _urlValidator = Substitute.For<IUrlValidator>();
         _logger = Substitute.For<ILogger<ForumPostScraper>>();
 
         _sessionManager.GetAuthenticatedClientAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>())
             .Returns(new HttpClient());
 
-        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _logger);
+        // Default: all URLs are safe
+        _urlValidator.IsUrlSafe(Arg.Any<string>()).Returns(true);
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(x =>
+        {
+            x[1] = null;
+            return true;
+        });
+
+        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _logger);
     }
 
     // --- Constructor Validation ---
@@ -44,28 +54,35 @@ public class ForumPostScraperTests
     [Fact]
     public void Constructor_NullSessionManager_Throws()
     {
-        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _logger);
+        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("sessionManager");
     }
 
     [Fact]
     public void Constructor_NullForumScraper_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("forumScraper");
     }
 
     [Fact]
     public void Constructor_NullLinkExtractor_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("linkExtractor");
+    }
+
+    [Fact]
+    public void Constructor_NullUrlValidator_Throws()
+    {
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!, _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("urlValidator");
     }
 
     [Fact]
     public void Constructor_NullLogger_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, null!);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -310,5 +327,44 @@ public class ForumPostScraperTests
         result.PostUrl.Should().Be("https://example.com/thread/1");
         result.ExtractedLinks.Should().BeEmpty();
         result.ErrorMessage.Should().Be("Something went wrong");
+    }
+
+    // --- #75: URL validation via IUrlValidator ---
+
+    [Fact]
+    public async Task ScrapePostAsync_UnsafeUrl_ReturnsFailureWithoutMakingRequest()
+    {
+        var postUrl = "http://169.254.169.254/latest/meta-data/";
+        _urlValidator.IsUrlSafe(postUrl, out Arg.Any<string?>()).Returns(x =>
+        {
+            x[1] = "Private IP address blocked";
+            return false;
+        });
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("URL blocked");
+        // Verify no HTTP requests were made
+        await _sessionManager.DidNotReceive().GetAuthenticatedClientAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>());
+        await _forumScraper.DidNotReceive().ExtractPostContentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ScrapePostAsync_SafeUrl_ProceedsNormally()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+        _forumScraper.ExtractPostContentAsync(postUrl, Arg.Any<CancellationToken>())
+            .Returns(new List<PostContent>
+            {
+                new() { ThreadUrl = postUrl, PostIndex = 0, HtmlContent = "<p>Ok</p>", PlainTextContent = "Ok" }
+            });
+        _linkExtractor.ExtractLinksAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Link>());
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeTrue();
+        _urlValidator.Received(1).IsUrlSafe(postUrl, out Arg.Any<string?>());
     }
 }

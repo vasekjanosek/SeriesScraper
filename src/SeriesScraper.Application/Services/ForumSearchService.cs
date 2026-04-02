@@ -14,17 +14,20 @@ public class ForumSearchService : IForumSearchService
     private readonly IForumScraper _forumScraper;
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumSectionRepository _sectionRepository;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ForumSearchService> _logger;
 
     public ForumSearchService(
         IForumScraper forumScraper,
         IForumSessionManager sessionManager,
         IForumSectionRepository sectionRepository,
+        IUrlValidator urlValidator,
         ILogger<ForumSearchService> logger)
     {
         _forumScraper = forumScraper ?? throw new ArgumentNullException(nameof(forumScraper));
         _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
         _sectionRepository = sectionRepository ?? throw new ArgumentNullException(nameof(sectionRepository));
+        _urlValidator = urlValidator ?? throw new ArgumentNullException(nameof(urlValidator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -59,12 +62,24 @@ public class ForumSearchService : IForumSearchService
 
             ct.ThrowIfCancellationRequested();
 
+            if (!_urlValidator.IsUrlSafe(sectionUrl, out var sectionReason))
+            {
+                _logger.LogWarning("Section URL blocked by security policy: {SectionUrl} — {Reason}", sectionUrl, sectionReason);
+                continue;
+            }
+
             try
             {
                 await foreach (var thread in _forumScraper.EnumerateThreadsAsync(sectionUrl, ct))
                 {
                     if (results.Count >= criteria.MaxResults)
                         break;
+
+                    if (!_urlValidator.IsUrlSafe(thread.Url))
+                    {
+                        _logger.LogDebug("Thread URL blocked by security policy: {ThreadUrl}", thread.Url);
+                        continue;
+                    }
 
                     if (MatchesCriteria(thread, criteria))
                     {

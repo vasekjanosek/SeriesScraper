@@ -15,6 +15,7 @@ public class ForumSearchServiceTests
     private readonly IForumScraper _forumScraper;
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumSectionRepository _sectionRepository;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ForumSearchService> _logger;
     private readonly ForumSearchService _sut;
 
@@ -32,12 +33,21 @@ public class ForumSearchServiceTests
         _forumScraper = Substitute.For<IForumScraper>();
         _sessionManager = Substitute.For<IForumSessionManager>();
         _sectionRepository = Substitute.For<IForumSectionRepository>();
+        _urlValidator = Substitute.For<IUrlValidator>();
         _logger = Substitute.For<ILogger<ForumSearchService>>();
 
         _sessionManager.GetAuthenticatedClientAsync(Arg.Any<ForumEntity>(), Arg.Any<CancellationToken>())
             .Returns(new HttpClient());
 
-        _sut = new ForumSearchService(_forumScraper, _sessionManager, _sectionRepository, _logger);
+        // Default: all URLs are safe
+        _urlValidator.IsUrlSafe(Arg.Any<string>()).Returns(true);
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(x =>
+        {
+            x[1] = null;
+            return true;
+        });
+
+        _sut = new ForumSearchService(_forumScraper, _sessionManager, _sectionRepository, _urlValidator, _logger);
     }
 
     // --- Constructor Validation ---
@@ -45,28 +55,35 @@ public class ForumSearchServiceTests
     [Fact]
     public void Constructor_NullForumScraper_Throws()
     {
-        var act = () => new ForumSearchService(null!, _sessionManager, _sectionRepository, _logger);
+        var act = () => new ForumSearchService(null!, _sessionManager, _sectionRepository, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("forumScraper");
     }
 
     [Fact]
     public void Constructor_NullSessionManager_Throws()
     {
-        var act = () => new ForumSearchService(_forumScraper, null!, _sectionRepository, _logger);
+        var act = () => new ForumSearchService(_forumScraper, null!, _sectionRepository, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("sessionManager");
     }
 
     [Fact]
     public void Constructor_NullSectionRepository_Throws()
     {
-        var act = () => new ForumSearchService(_forumScraper, _sessionManager, null!, _logger);
+        var act = () => new ForumSearchService(_forumScraper, _sessionManager, null!, _urlValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("sectionRepository");
+    }
+
+    [Fact]
+    public void Constructor_NullUrlValidator_Throws()
+    {
+        var act = () => new ForumSearchService(_forumScraper, _sessionManager, _sectionRepository, null!, _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("urlValidator");
     }
 
     [Fact]
     public void Constructor_NullLogger_Throws()
     {
-        var act = () => new ForumSearchService(_forumScraper, _sessionManager, _sectionRepository, null!);
+        var act = () => new ForumSearchService(_forumScraper, _sessionManager, _sectionRepository, _urlValidator, null!);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -346,6 +363,59 @@ public class ForumSearchServiceTests
         var criteria = new ForumSearchCriteria { TitleQuery = "breaking" };
 
         ForumSearchService.MatchesCriteria(thread, criteria).Should().BeTrue();
+    }
+
+    // --- #75: URL validation via IUrlValidator ---
+
+    [Fact]
+    public async Task SearchPostsAsync_UnsafeSectionUrl_SkipsSection()
+    {
+        var unsafeUrl = "http://169.254.169.254/sections";
+        var safeUrl = "https://forum.example.com/movies";
+
+        var sections = new List<ForumSectionEntity>
+        {
+            new() { SectionId = 1, ForumId = 1, Url = unsafeUrl, Name = "SSRF", IsActive = true },
+            new() { SectionId = 2, ForumId = 1, Url = safeUrl, Name = "Movies", IsActive = true }
+        };
+        _sectionRepository.GetByForumIdAsync(1, Arg.Any<CancellationToken>())
+            .Returns(sections);
+
+        _urlValidator.IsUrlSafe(unsafeUrl, out Arg.Any<string?>()).Returns(x =>
+        {
+            x[1] = "Private IP blocked";
+            return false;
+        });
+
+        _forumScraper.EnumerateThreadsAsync(safeUrl, Arg.Any<CancellationToken>())
+            .Returns(ToAsyncEnumerable(
+                new ForumThread { Url = "https://forum.example.com/thread/1", Title = "Movie" }
+            ));
+
+        var result = await _sut.SearchPostsAsync(_testForum, new ForumSearchCriteria());
+
+        result.Should().HaveCount(1);
+        // Verify unsafe section was never enumerated
+        _forumScraper.DidNotReceive().EnumerateThreadsAsync(unsafeUrl, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SearchPostsAsync_UnsafeThreadUrl_SkipsThread()
+    {
+        var criteria = new ForumSearchCriteria { SectionUrl = "https://forum.example.com/movies" };
+
+        _forumScraper.EnumerateThreadsAsync("https://forum.example.com/movies", Arg.Any<CancellationToken>())
+            .Returns(ToAsyncEnumerable(
+                new ForumThread { Url = "http://10.0.0.1/internal", Title = "Safe-looking Title" },
+                new ForumThread { Url = "https://forum.example.com/thread/2", Title = "Real Thread" }
+            ));
+
+        _urlValidator.IsUrlSafe("http://10.0.0.1/internal").Returns(false);
+
+        var result = await _sut.SearchPostsAsync(_testForum, criteria);
+
+        result.Should().HaveCount(1);
+        result[0].Should().Be("https://forum.example.com/thread/2");
     }
 
     // --- Helper ---

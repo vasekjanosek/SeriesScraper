@@ -9,6 +9,12 @@ public class LinkExtractorService : ILinkExtractorService
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// Maximum URL length that can be stored in the database.
+    /// URLs exceeding this limit are skipped during extraction.
+    /// </summary>
+    internal const int MaxUrlLength = 2000;
+
     // Allowed URL schemes per AC#5
     private static readonly HashSet<string> AllowedSchemes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -64,6 +70,12 @@ public class LinkExtractorService : ILinkExtractorService
         {
             if (!IsAllowedScheme(url))
                 continue;
+
+            if (url.Length > MaxUrlLength)
+            {
+                _logger.LogWarning("URL exceeds maximum length ({Length} > {Max}), skipping", url.Length, MaxUrlLength);
+                continue;
+            }
 
             var linkTypeId = _linkTypeService.ClassifyUrl(url, linkTypes);
             if (linkTypeId is null)

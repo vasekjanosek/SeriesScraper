@@ -62,9 +62,102 @@ public class ImdbDatasetDownloaderTests
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://datasets.imdbapi.com/") };
         var downloader = new ImdbDatasetDownloader(httpClient, NullLogger<ImdbDatasetDownloader>.Instance);
         
-        // Act & Assert
+        // Act & Assert — use a valid dataset name so it passes validation
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => downloader.DownloadDatasetAsync("nonexistent.tsv.gz", CancellationToken.None));
+            () => downloader.DownloadDatasetAsync("title.basics.tsv.gz", CancellationToken.None));
+    }
+    
+    // --- #65: Path traversal prevention ---
+    
+    [Theory]
+    [InlineData("../../etc/passwd")]
+    [InlineData("..\\windows\\system32\\config\\sam")]
+    [InlineData("title.basics.tsv.gz/../../etc/shadow")]
+    [InlineData("../title.basics.tsv.gz")]
+    public void ValidateDatasetName_PathTraversal_ThrowsArgumentException(string malicious)
+    {
+        var act = () => ImdbDatasetDownloader.ValidateDatasetName(malicious);
+        act.Should().Throw<ArgumentException>();
+    }
+    
+    [Theory]
+    [InlineData("unknown.tsv.gz")]
+    [InlineData("hacked.txt")]
+    [InlineData("title.basics.tsv")]
+    public void ValidateDatasetName_UnknownDataset_ThrowsArgumentException(string unknown)
+    {
+        var act = () => ImdbDatasetDownloader.ValidateDatasetName(unknown);
+        act.Should().Throw<ArgumentException>().WithMessage("*Unknown IMDB dataset*");
+    }
+    
+    [Fact]
+    public void ValidateDatasetName_NullOrEmpty_ThrowsArgumentException()
+    {
+        var act1 = () => ImdbDatasetDownloader.ValidateDatasetName(null!);
+        act1.Should().Throw<ArgumentException>();
+        
+        var act2 = () => ImdbDatasetDownloader.ValidateDatasetName("");
+        act2.Should().Throw<ArgumentException>();
+        
+        var act3 = () => ImdbDatasetDownloader.ValidateDatasetName("   ");
+        act3.Should().Throw<ArgumentException>();
+    }
+    
+    [Theory]
+    [InlineData("title.basics.tsv.gz")]
+    [InlineData("title.akas.tsv.gz")]
+    [InlineData("title.episode.tsv.gz")]
+    [InlineData("title.ratings.tsv.gz")]
+    [InlineData("title.crew.tsv.gz")]
+    [InlineData("title.principals.tsv.gz")]
+    [InlineData("name.basics.tsv.gz")]
+    public void ValidateDatasetName_AllowedDatasets_DoesNotThrow(string allowed)
+    {
+        var act = () => ImdbDatasetDownloader.ValidateDatasetName(allowed);
+        act.Should().NotThrow();
+    }
+    
+    // --- #66: Temp file cleanup on InvalidDataException ---
+    
+    [Fact]
+    public async Task DownloadDatasetAsync_InvalidGzipHeader_CleansTempFile()
+    {
+        // Arrange — record existing temp files before test
+        var existingFiles = new HashSet<string>(
+            Directory.GetFiles(Path.GetTempPath(), "imdb_*_title.basics.tsv.gz"));
+        
+        var invalidData = new byte[] { 0x00, 0x00, 0x48, 0x65, 0x6c, 0x6c, 0x6f };
+        var httpClient = CreateHttpClientWithMockData("title.basics.tsv.gz", invalidData);
+        var downloader = new ImdbDatasetDownloader(httpClient, NullLogger<ImdbDatasetDownloader>.Instance);
+        
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => downloader.DownloadDatasetAsync("title.basics.tsv.gz", CancellationToken.None));
+        
+        // Verify no NEW temp files were left behind
+        var currentFiles = Directory.GetFiles(Path.GetTempPath(), "imdb_*_title.basics.tsv.gz");
+        var newFiles = currentFiles.Where(f => !existingFiles.Contains(f)).ToArray();
+        newFiles.Should().BeEmpty("temp file should be cleaned up on InvalidDataException");
+    }
+    
+    [Fact]
+    public async Task DownloadDatasetAsync_TooFewRows_CleansTempFile()
+    {
+        // Arrange — record existing temp files before test
+        var existingFiles = new HashSet<string>(
+            Directory.GetFiles(Path.GetTempPath(), "imdb_*_title.basics.tsv.gz"));
+        
+        var httpClient = CreateHttpClientWithMockData("title.basics.tsv.gz", CreateValidGzipFile(100));
+        var downloader = new ImdbDatasetDownloader(httpClient, NullLogger<ImdbDatasetDownloader>.Instance);
+        
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => downloader.DownloadDatasetAsync("title.basics.tsv.gz", CancellationToken.None));
+        
+        // Verify no NEW temp files were left behind
+        var currentFiles = Directory.GetFiles(Path.GetTempPath(), "imdb_*_title.basics.tsv.gz");
+        var newFiles = currentFiles.Where(f => !existingFiles.Contains(f)).ToArray();
+        newFiles.Should().BeEmpty("temp file should be cleaned up on validation failure");
     }
     
     private static HttpClient CreateHttpClientWithMockData(string filename, byte[] data)
