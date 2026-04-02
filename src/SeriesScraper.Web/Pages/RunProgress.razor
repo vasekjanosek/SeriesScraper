@@ -108,11 +108,31 @@ else
     private IReadOnlyList<RunProgressDto>? _activeRuns;
     private bool _loading = true;
     private Timer? _timer;
+    private bool _disposed;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
-        _timer = new Timer(async _ => await RefreshAsync(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        _timer = new Timer(OnTimerElapsed, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async void OnTimerElapsed(object? state)
+    {
+        if (_disposed)
+            return;
+
+        try
+        {
+            await RefreshAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component was disposed during refresh — safe to ignore
+        }
+        catch (Exception)
+        {
+            // Prevent unobserved exceptions from crashing the process
+        }
     }
 
     private async Task LoadDataAsync()
@@ -124,6 +144,9 @@ else
 
     private async Task RefreshAsync()
     {
+        if (_disposed)
+            return;
+
         _activeRuns = await RunProgressService.GetActiveRunsAsync();
         await InvokeAsync(StateHasChanged);
     }
@@ -164,6 +187,7 @@ else
 
     public void Dispose()
     {
+        _disposed = true;
         _timer?.Dispose();
     }
 }
