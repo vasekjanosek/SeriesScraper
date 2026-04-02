@@ -5,7 +5,7 @@ This file provides GitHub Copilot with passive project context for code suggesti
 > **Note:** Copilot cannot run automated pipelines. Automation is handled by
 > Claude Code and Codex CLI. This file is for passive context only.
 >
-> Full agent instructions are in [SHARED_AGENTS.md](../../SHARED_AGENTS.md).
+> Full agent instructions are in [SHARED_AGENTS.md](../SHARED_AGENTS.md).
 > If you modify SHARED_AGENTS.md, you must also update CLAUDE.md and AGENTS.md.
 
 ---
