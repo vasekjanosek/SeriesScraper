@@ -358,11 +358,24 @@ namespace SeriesScraper.Infrastructure.Migrations
                 name: "ix_scrape_runs_forum_id",
                 table: "scrape_runs",
                 column: "forum_id");
+
+            // Partial indexes via raw SQL (AC#1)
+            migrationBuilder.Sql(
+                "CREATE INDEX ix_quality_tokens_is_active_partial ON quality_tokens (token_text) WHERE is_active = true;");
+            migrationBuilder.Sql(
+                "CREATE INDEX ix_link_types_is_active_partial ON link_types (name) WHERE is_active = true;");
+            migrationBuilder.Sql(
+                "CREATE INDEX ix_links_is_current_partial ON links (media_title_id, link_type_id) WHERE is_current = true;");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Drop partial indexes first
+            migrationBuilder.Sql("DROP INDEX IF EXISTS ix_links_is_current_partial;");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS ix_link_types_is_active_partial;");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS ix_quality_tokens_is_active_partial;");
+
             migrationBuilder.DropTable(
                 name: "forum_sections");
 
