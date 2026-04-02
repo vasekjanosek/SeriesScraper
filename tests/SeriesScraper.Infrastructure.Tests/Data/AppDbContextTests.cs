@@ -35,6 +35,10 @@ public class AppDbContextTests
         Assert.NotNull(context.ScrapeRuns);
         Assert.NotNull(context.DataSources);
         Assert.NotNull(context.MediaTitles);
+        Assert.NotNull(context.MediaTitleAliases);
+        Assert.NotNull(context.MediaEpisodes);
+        Assert.NotNull(context.MediaRatings);
+        Assert.NotNull(context.ImdbTitleDetails);
         Assert.NotNull(context.QualityTokens);
         Assert.NotNull(context.LinkTypes);
         Assert.NotNull(context.Links);
