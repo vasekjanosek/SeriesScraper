@@ -918,4 +918,35 @@ public class ForumSessionManagerTests : IDisposable
         // Setting repo only queried once (for the initial auth, not for reuse)
         await settingRepo.Received(1).GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_InvalidCookieNameWithSpace_LogsWarningAndDoesNotThrow()
+    {
+        // Arrange — a cookie name with a space is illegal (CookieException)
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("bad name with space=value");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act — must not propagate CookieException
+        var act = () => sut.GetAuthenticatedClientAsync(forum);
+        await act.Should().NotThrowAsync();
+
+        // Assert — a warning was logged about the skipped invalid cookie
+        _logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Is<object>(o => o.ToString()!.Contains("invalid", StringComparison.OrdinalIgnoreCase)
+                             || o.ToString()!.Contains("Skipping", StringComparison.OrdinalIgnoreCase)),
+            Arg.Any<CookieException?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
 }

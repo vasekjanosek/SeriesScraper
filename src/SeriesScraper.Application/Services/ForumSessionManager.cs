@@ -295,7 +295,14 @@ public sealed class ForumSessionManager : IForumSessionManager
 
             var name = part[..eqIndex].Trim();
             var value = part[(eqIndex + 1)..].Trim();
-            container.Add(new Cookie(name, value, "/", domain));
+            try
+            {
+                container.Add(new Cookie(name, value, "/", domain));
+            }
+            catch (CookieException ex)
+            {
+                _logger.LogWarning(ex, "Skipping invalid manual cookie for forum {ForumId}", forumId);
+            }
         }
 
         return container;
