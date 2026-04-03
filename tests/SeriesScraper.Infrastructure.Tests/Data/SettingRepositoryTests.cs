@@ -80,17 +80,6 @@ public class SettingRepositoryTests
     }
 
     [Fact]
-    public async Task GetValueAsync_ImdbImportIntervalHours_IsSeeded()
-    {
-        var (context, repo) = CreateSut();
-        using (context)
-        {
-            var value = await repo.GetValueAsync("ImdbImportIntervalHours");
-            value.Should().Be("168");
-        }
-    }
-
-    [Fact]
     public async Task GetValueAsync_ForumRefreshIntervalHours_IsSeeded()
     {
         var (context, repo) = CreateSut();
@@ -121,7 +110,6 @@ public class SettingRepositoryTests
                 "HttpCircuitBreakerThreshold",
                 "HttpTimeoutSeconds",
                 "BulkImportMemoryCeilingMB",
-                "ImdbImportIntervalHours",
                 "ForumRefreshIntervalHours",
                 "scrape.request_delay",
                 "results.page_size",

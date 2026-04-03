@@ -33,6 +33,8 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         
         entity.HasData(
+            // Legacy key from InitialCreate migration. Not read by any service since ImdbImportBackgroundService
+            // was introduced. Retained to avoid dropping a seeded row from the initial schema.
             new Setting 
             { 
                 Key = "ImdbRefreshIntervalHours", 
@@ -103,23 +105,17 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
                 Description = "Memory ceiling for bulk IMDB imports",
                 LastModifiedAt = seedDate
             },
+            // PascalCase key used by ForumStructureRefreshService (backward-compat exception to dot-notation convention).
             new Setting 
-            { 
-                Key = "ImdbImportIntervalHours", 
-                Value = "168", 
-                Description = "Interval between IMDB dataset imports (hours). Default: 168 (7 days)",
-                LastModifiedAt = seedDate
-            },
-            new Setting 
-            { 
-                Key = "ForumRefreshIntervalHours", 
-                Value = "24", 
+            {
+                Key = "ForumRefreshIntervalHours",
+                Value = "24",
                 Description = "Interval between forum structure refreshes (hours)",
                 LastModifiedAt = seedDate
             },
-            new Setting 
-            { 
-                Key = "scrape.request_delay", 
+            new Setting
+            {
+                Key = "scrape.request_delay",
                 Value = "2000", 
                 Description = "Delay between scrape requests in milliseconds",
                 LastModifiedAt = seedDate

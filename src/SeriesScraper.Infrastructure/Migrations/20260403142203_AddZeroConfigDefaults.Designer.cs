@@ -1309,13 +1309,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                         },
                         new
                         {
-                            Key = "ImdbImportIntervalHours",
-                            Description = "Interval between IMDB dataset imports (hours). Default: 168 (7 days)",
-                            LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "168"
-                        },
-                        new
-                        {
                             Key = "ForumRefreshIntervalHours",
                             Description = "Interval between forum structure refreshes (hours)",
                             LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
