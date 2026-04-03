@@ -36,7 +36,7 @@ cp .env.example .env
   # Generate with:
   openssl rand -base64 32
   ```
-- `GITHUB_RUNNER_TOKEN` - From GitHub Settings → Actions → Runners → New runner
+- `GITHUB_ACCESS_TOKEN` - From GitHub Settings → Actions → Runners → New runner
 - `FORUM_USERNAME` and `FORUM_PASSWORD` - Your forum credentials
 - `APP_ENV` - Set to `Development` for local dev, keep `Production` for deployment
 
