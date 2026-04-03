@@ -24,4 +24,14 @@ public sealed record ForumSection
     /// The depth level of this section (1 = top-level).
     /// </summary>
     public required int Depth { get; init; }
+
+    /// <summary>
+    /// The category name this section belongs to, extracted from cattitle elements.
+    /// </summary>
+    public string? Category { get; init; }
+
+    /// <summary>
+    /// The number of topics in this section, parsed from gensmall elements.
+    /// </summary>
+    public int? TopicCount { get; init; }
 }

@@ -52,8 +52,12 @@ public class HtmlForumSectionParserTests
         result[0].Name.Should().Be("HD - Serialy");
         result[0].Url.Should().Be("https://forum.example.com/viewforum.php?f=324&sid=abc");
         result[0].Depth.Should().Be(1);
+        result[0].Category.Should().Be("Movie Hall");
+        result[0].TopicCount.Should().Be(4051);
         result[1].Name.Should().Be("SD - Serialy");
         result[1].Url.Should().Be("https://forum.example.com/viewforum.php?f=325&sid=abc");
+        result[1].Category.Should().Be("Movie Hall");
+        result[1].TopicCount.Should().Be(1200);
     }
 
     [Fact]
@@ -111,7 +115,9 @@ public class HtmlForumSectionParserTests
 
         result.Should().HaveCount(2);
         result[0].Name.Should().Be("HD - Serialy");
+        result[0].Category.Should().Be("Movie Hall");
         result[1].Name.Should().Be("MP3 Albums");
+        result[1].Category.Should().Be("Music Section");
     }
 
     [Fact]
@@ -126,6 +132,63 @@ public class HtmlForumSectionParserTests
         var result = _sut.ParseSections(html, BaseUrl);
 
         result.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_TopicCountNullWhenMissing()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].TopicCount.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_CategoryNullWhenNoCattitle()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].Category.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_TopicCountIgnoresNonNumeric()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+          <td class='row2' align='center'>
+            <span class='gensmall'>N/A</span>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].TopicCount.Should().BeNull();
     }
 
     [Fact]
