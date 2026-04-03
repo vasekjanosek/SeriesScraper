@@ -15,7 +15,12 @@ public class HtmlForumSectionParser : IHtmlForumSectionParser
         doc.LoadHtml(html);
 
         // Try forum-specific patterns in order of specificity
-        var sections = ParsePhpBBSections(doc, baseUrl).ToList();
+        // phpBB2 first (uses class='nav' + viewforum.php; phpBB3 uses class='forumtitle')
+        var sections = ParsePhpBB2Sections(doc, baseUrl).ToList();
+        if (sections.Count > 0)
+            return sections.AsReadOnly();
+
+        sections = ParsePhpBBSections(doc, baseUrl).ToList();
         if (sections.Count > 0)
             return sections.AsReadOnly();
 
@@ -30,6 +35,97 @@ public class HtmlForumSectionParser : IHtmlForumSectionParser
         // Generic fallback
         sections = ParseGenericForumSections(doc, baseUrl).ToList();
         return sections.AsReadOnly();
+    }
+
+    private static IEnumerable<ForumSectionVO> ParsePhpBB2Sections(
+        HtmlDocument doc, string baseUrl)
+    {
+        // phpBB2: <a class='nav' href='viewforum.php?f=324&sid=...'>Forum Name</a>
+        // Breadcrumbs also use class='nav' but link to index.php, so we filter on viewforum.php
+        // Categories: <a class='cattitle'>Category Name</a> in preceding rows
+        // Topic counts: <span class='gensmall'>4051</span> in sibling td.row2
+
+        // Build a list of all table rows to track category context
+        var allRows = doc.DocumentNode.SelectNodes("//tr");
+
+        var navLinks = doc.DocumentNode.SelectNodes(
+            "//a[@class='nav' and contains(@href, 'viewforum.php')]");
+        if (navLinks == null) yield break;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in navLinks)
+        {
+            var href = HtmlEntity.DeEntitize(node.GetAttributeValue("href", ""));
+            var name = HtmlEntity.DeEntitize(node.InnerText).Trim();
+
+            if (string.IsNullOrWhiteSpace(href) || string.IsNullOrWhiteSpace(name))
+                continue;
+
+            var resolvedUrl = ResolveUrl(baseUrl, href);
+            if (!seen.Add(resolvedUrl))
+                continue;
+
+            // Determine category: walk backward through preceding rows to find cattitle
+            string? category = FindCategoryForNode(node, allRows);
+
+            // Determine topic count: look for span.gensmall in sibling td.row2
+            int? topicCount = FindTopicCountForNode(node);
+
+            yield return new ForumSectionVO
+            {
+                Url = resolvedUrl,
+                Name = name,
+                Depth = 1,
+                Category = category,
+                TopicCount = topicCount
+            };
+        }
+    }
+
+    private static string? FindCategoryForNode(HtmlNode navNode, HtmlNodeCollection? allRows)
+    {
+        if (allRows == null) return null;
+
+        // Find the <tr> containing this nav link
+        var containingRow = navNode.Ancestors("tr").FirstOrDefault();
+        if (containingRow == null) return null;
+
+        // Walk backward through rows to find the nearest cattitle
+        bool foundSelf = false;
+        for (int i = allRows.Count - 1; i >= 0; i--)
+        {
+            if (allRows[i] == containingRow)
+            {
+                foundSelf = true;
+                continue;
+            }
+
+            if (!foundSelf) continue;
+
+            var cattitle = allRows[i].SelectSingleNode(".//a[@class='cattitle']");
+            if (cattitle != null)
+            {
+                var text = HtmlEntity.DeEntitize(cattitle.InnerText).Trim();
+                return string.IsNullOrWhiteSpace(text) ? null : text;
+            }
+        }
+
+        return null;
+    }
+
+    private static int? FindTopicCountForNode(HtmlNode navNode)
+    {
+        // The nav link is inside a <td class='row1'>. The topic count is in a sibling
+        // <td class='row2'> containing <span class='gensmall'> within the same <tr>.
+        var containingRow = navNode.Ancestors("tr").FirstOrDefault();
+        if (containingRow == null) return null;
+
+        var gensmallSpan = containingRow.SelectSingleNode(
+            ".//td[@class='row2']//span[@class='gensmall']");
+        if (gensmallSpan == null) return null;
+
+        var text = HtmlEntity.DeEntitize(gensmallSpan.InnerText).Trim();
+        return int.TryParse(text, out var count) ? count : null;
     }
 
     private static IEnumerable<ForumSectionVO> ParsePhpBBSections(

@@ -8,7 +8,220 @@ public class HtmlForumSectionParserTests
     private readonly HtmlForumSectionParser _sut = new();
     private const string BaseUrl = "https://forum.example.com";
 
-    // ── phpBB Pattern ──────────────────────────────────────────────────────
+    // ── phpBB2 Pattern ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_ExtractsSections()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='cat' colspan='2'>
+            <a href='index.php?c=23&amp;sid=abc' class='cattitle'>Movie Hall</a>
+          </td>
+        </tr>
+        <tr>
+          <td class='row1' height='45'>
+            <img src='templates/subSilver/images/folder.gif' class='imgfolder'>
+          </td>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324&amp;sid=abc' class='nav'>HD - Serialy</a>
+            <span class='genmed'>HD series downloads</span>
+          </td>
+          <td class='row2' align='center'>
+            <span class='gensmall'>4051</span>
+          </td>
+        </tr>
+        <tr>
+          <td class='row1' height='45'>
+            <img src='templates/subSilver/images/folder.gif' class='imgfolder'>
+          </td>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=325&amp;sid=abc' class='nav'>SD - Serialy</a>
+            <span class='genmed'>SD series downloads</span>
+          </td>
+          <td class='row2' align='center'>
+            <span class='gensmall'>1200</span>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(2);
+        result[0].Name.Should().Be("HD - Serialy");
+        result[0].Url.Should().Be("https://forum.example.com/viewforum.php?f=324&sid=abc");
+        result[0].Depth.Should().Be(1);
+        result[0].Category.Should().Be("Movie Hall");
+        result[0].TopicCount.Should().Be(4051);
+        result[1].Name.Should().Be("SD - Serialy");
+        result[1].Url.Should().Be("https://forum.example.com/viewforum.php?f=325&sid=abc");
+        result[1].Category.Should().Be("Movie Hall");
+        result[1].TopicCount.Should().Be(1200);
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_FiltersBreadcrumbs()
+    {
+        // Breadcrumb nav links point to index.php, not viewforum.php
+        var html = @"
+        <html><body>
+        <a href='index.php' class='nav'>Home</a>
+        <a href='index.php?c=23' class='nav'>Movie Hall</a>
+        <table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324&amp;sid=abc' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        </table>
+        </body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].Name.Should().Be("HD - Serialy");
+        result[0].Url.Should().Contain("viewforum.php?f=324");
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_ExtractsCategory()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='cat' colspan='2'>
+            <a href='index.php?c=23' class='cattitle'>Movie Hall</a>
+          </td>
+        </tr>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        <tr>
+          <td class='cat' colspan='2'>
+            <a href='index.php?c=24' class='cattitle'>Music Section</a>
+          </td>
+        </tr>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=400' class='nav'>MP3 Albums</a>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(2);
+        result[0].Name.Should().Be("HD - Serialy");
+        result[0].Category.Should().Be("Movie Hall");
+        result[1].Name.Should().Be("MP3 Albums");
+        result[1].Category.Should().Be("Music Section");
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_DeduplicatesSameUrl()
+    {
+        var html = @"
+        <html><body>
+        <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+        <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+        </body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_TopicCountNullWhenMissing()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].TopicCount.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_CategoryNullWhenNoCattitle()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].Category.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_TopicCountIgnoresNonNumeric()
+    {
+        var html = @"
+        <html><body><table>
+        <tr>
+          <td class='row1' width='100%'>
+            <a href='viewforum.php?f=324' class='nav'>HD - Serialy</a>
+          </td>
+          <td class='row2' align='center'>
+            <span class='gensmall'>N/A</span>
+          </td>
+        </tr>
+        </table></body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        result.Should().HaveCount(1);
+        result[0].TopicCount.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2Html_ResolvesRelativeUrls()
+    {
+        var html = @"
+        <html><body>
+        <a href='viewforum.php?f=100' class='nav'>Section</a>
+        </body></html>";
+
+        var result = _sut.ParseSections(html, "https://warforum.xyz/index.php");
+
+        result.Should().HaveCount(1);
+        result[0].Url.Should().Be("https://warforum.xyz/viewforum.php?f=100");
+    }
+
+    [Fact]
+    public void ParseSections_PhpBB2NotTriggeredByPhpBB3()
+    {
+        // phpBB3 uses class='forumtitle', not class='nav' — should NOT match phpBB2 parser
+        var html = @"
+        <html><body>
+            <a href='./viewforum.php?f=1' class='forumtitle'>Movies</a>
+        </body></html>";
+
+        var result = _sut.ParseSections(html, BaseUrl);
+
+        // Should be parsed by phpBB3, not phpBB2 — result is still valid
+        result.Should().HaveCount(1);
+        result[0].Name.Should().Be("Movies");
+    }
+
+    // ── phpBB3 Pattern ─────────────────────────────────────────────────────
 
     [Fact]
     public void ParseSections_PhpBBHtml_ExtractsSections()
