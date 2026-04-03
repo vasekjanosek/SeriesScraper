@@ -188,3 +188,116 @@ public class DataProtectionKeyPersistenceTests
         prop!.GetMaxLength().Should().Be(500);
     }
 }
+
+/// <summary>
+/// Integration tests for DataProtection key persistence using a real PostgreSQL database
+/// (Testcontainers). These tests verify that keys are written to and read from the
+/// actual database, proving persistence across provider/container restarts.
+/// </summary>
+[Collection("PostgreSQL")]
+[Trait("Category", "Integration")]
+public class DataProtectionKeyPersistenceIntegrationTests : IAsyncLifetime
+{
+    private readonly PostgresqlFixture _fixture;
+
+    public DataProtectionKeyPersistenceIntegrationTests(PostgresqlFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    public async Task InitializeAsync()
+    {
+        // Clean any keys from previous test runs to ensure isolation
+        await using var context = _fixture.CreateContext();
+        await context.Database.ExecuteSqlRawAsync("DELETE FROM data_protection_keys");
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    [Fact]
+    public async Task DataProtection_Keys_Are_Written_To_PostgreSQL_Table()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddDbContext<AppDbContext>(opts =>
+            opts.UseNpgsql(_fixture.ConnectionString));
+        services.AddDataProtection()
+            .SetApplicationName("SeriesScraper.Integration.Tests")
+            .PersistKeysToDbContext<AppDbContext>();
+
+        using var sp = services.BuildServiceProvider();
+
+        // Act – protecting data forces key generation and persistence
+        var protector = sp.GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector("storage-test");
+        protector.Protect("test-value");
+
+        // Assert – keys exist in the real PostgreSQL table
+        await using var verifyContext = _fixture.CreateContext();
+        var keyCount = await verifyContext.DataProtectionKeys.CountAsync();
+        keyCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Keys_Survive_Provider_Disposal_With_PostgreSQL()
+    {
+        // Arrange – first provider creates and persists keys to PostgreSQL
+        string encrypted;
+        {
+            var services = new ServiceCollection();
+            services.AddDbContext<AppDbContext>(opts =>
+                opts.UseNpgsql(_fixture.ConnectionString));
+            services.AddDataProtection()
+                .SetApplicationName("SeriesScraper.Integration.Tests")
+                .PersistKeysToDbContext<AppDbContext>();
+
+            using var sp = services.BuildServiceProvider();
+            var protector = sp.GetRequiredService<IDataProtectionProvider>()
+                .CreateProtector("survive-test");
+            encrypted = protector.Protect("secret-payload");
+        }
+        // All services disposed here — simulates container/process restart
+
+        // Act – new provider reads keys from PostgreSQL (no in-memory state carried over)
+        {
+            var services = new ServiceCollection();
+            services.AddDbContext<AppDbContext>(opts =>
+                opts.UseNpgsql(_fixture.ConnectionString));
+            services.AddDataProtection()
+                .SetApplicationName("SeriesScraper.Integration.Tests")
+                .PersistKeysToDbContext<AppDbContext>();
+
+            using var sp = services.BuildServiceProvider();
+            var protector = sp.GetRequiredService<IDataProtectionProvider>()
+                .CreateProtector("survive-test");
+
+            // Assert – data decrypted using keys loaded from PostgreSQL
+            var decrypted = protector.Unprotect(encrypted);
+            decrypted.Should().Be("secret-payload");
+        }
+    }
+
+    [Fact]
+    public async Task Migration_Creates_DataProtectionKeys_Table_With_Correct_Schema()
+    {
+        // The fixture's MigrateAsync already applied all migrations when the container started.
+        // Verify the data_protection_keys table exists with the correct schema by
+        // inserting a row and reading it back.
+        await using var context = _fixture.CreateContext();
+
+        var testKey = new DataProtectionKey
+        {
+            FriendlyName = "schema-test-key",
+            Xml = "<key id='schema-test'><creation-date>2026-04-03T00:00:00Z</creation-date></key>"
+        };
+        context.DataProtectionKeys.Add(testKey);
+        await context.SaveChangesAsync();
+
+        var saved = await context.DataProtectionKeys
+            .FirstAsync(k => k.FriendlyName == "schema-test-key");
+
+        saved.Id.Should().BeGreaterThan(0);
+        saved.FriendlyName.Should().Be("schema-test-key");
+        saved.Xml.Should().NotBeNullOrEmpty();
+    }
+}
