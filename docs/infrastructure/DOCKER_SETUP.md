@@ -96,12 +96,21 @@ curl http://localhost:8080/healthz
 
 ### GitHub Actions Runner
 
-- **Image**: `myoung34/github-runner:latest`
-  - ⚠️ TODO: Replace with pinned digest SHA before production use
-  - Find digest: `docker pull myoung34/github-runner:latest && docker inspect --format='{{index .RepoDigests 0}}' myoung34/github-runner:latest`
-- **Purpose**: Runs CI workflows locally
-- **Token**: Expires after 1 hour - regenerate if runner fails to register
+- **Image**: `myoung34/github-runner:2.320.0` (pinned version for security)
+- **Purpose**: Runs CI/CD workflows locally on self-hosted infrastructure
+- **Authentication**: GitHub Personal Access Token (PAT) with Actions & Administration permissions
+- **Configuration**: Docker-outside-of-Docker (DooD) for Testcontainers support
+- **Health Check**: Verifies `Runner.Listener` process is running
 - **Volume**: `runner_work` (build artifacts, typically <2 GB)
+- **Security Warning**: Runner has root-equivalent access to host Docker daemon — trusted environments only
+
+**Setup Instructions**: See [GITHUB_RUNNER_SETUP.md](GITHUB_RUNNER_SETUP.md) for complete configuration guide.
+
+**Quick Setup**:
+1. Generate GitHub fine-grained PAT with Actions (RW) + Administration (RW) permissions
+2. Add to `.env`: `GITHUB_ACCESS_TOKEN=ghp_your_token_here`
+3. Start runner: `docker compose up -d github-runner`
+4. Verify in GitHub: Settings → Actions → Runners → `seriescraper-runner` should show **Idle** status
 
 ## Disk Usage
 
@@ -254,11 +263,15 @@ docker compose exec app curl -f http://localhost:8080/healthz
 
 ### GitHub Runner Not Registering
 
-1. Verify `GITHUB_RUNNER_TOKEN` is correct and not expired (tokens expire after 1 hour)
-2. Regenerate token: GitHub → Settings → Actions → Runners → New self-hosted runner
-3. Update `.env` with new token
-4. Restart runner: `docker compose restart github-runner`
-5. Check runner logs: `docker compose logs github-runner`
+1. Verify `GITHUB_ACCESS_TOKEN` in `.env` is correct and has not expired
+2. Regenerate token if expired: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+3. Ensure token has permissions: Actions (RW), Administration (RW)
+4. Update `.env` with new token
+5. Restart runner: `docker compose restart github-runner`
+6. Check runner logs: `docker compose logs github-runner`
+7. Verify runner appears in GitHub: Settings → Actions → Runners
+
+For detailed troubleshooting, see [GITHUB_RUNNER_SETUP.md](GITHUB_RUNNER_SETUP.md).
 
 ### Out of Disk Space
 
