@@ -78,7 +78,8 @@ public class ResultsService : IResultsService
             LinkTypeName = l.LinkType?.Name ?? "Unknown",
             ParsedSeason = l.ParsedSeason,
             ParsedEpisode = l.ParsedEpisode,
-            IsCurrent = l.IsCurrent
+            IsCurrent = l.IsCurrent,
+            Language = l.Language
         }).ToList();
 
         var detail = new ResultDetailDto

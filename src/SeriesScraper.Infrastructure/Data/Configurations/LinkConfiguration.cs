@@ -30,6 +30,9 @@ public class LinkConfiguration : IEntityTypeConfiguration<Link>
         entity.Property(e => e.IsCurrent)
             .HasDefaultValue(true);
         
+        entity.Property(e => e.Language)
+            .HasMaxLength(50);
+        
         entity.HasOne(e => e.LinkType)
             .WithMany(lt => lt.Links)
             .HasForeignKey(e => e.LinkTypeId)

@@ -16,6 +16,7 @@ public class ForumPostScraperTests : IDisposable
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumScraper _forumScraper;
     private readonly ILinkExtractorService _linkExtractor;
+    private readonly ILanguageTagParser _languageTagParser;
     private readonly IUrlValidator _urlValidator;
     private readonly IResponseValidator _responseValidator;
     private readonly ILogger<ForumPostScraper> _logger;
@@ -37,6 +38,7 @@ public class ForumPostScraperTests : IDisposable
         _sessionManager = Substitute.For<IForumSessionManager>();
         _forumScraper = Substitute.For<IForumScraper>();
         _linkExtractor = Substitute.For<ILinkExtractorService>();
+        _languageTagParser = Substitute.For<ILanguageTagParser>();
         _urlValidator = Substitute.For<IUrlValidator>();
         _responseValidator = Substitute.For<IResponseValidator>();
         _logger = Substitute.For<ILogger<ForumPostScraper>>();
@@ -59,7 +61,7 @@ public class ForumPostScraperTests : IDisposable
             return true;
         });
 
-        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, _logger);
+        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _languageTagParser, _urlValidator, _responseValidator, _logger);
     }
 
     public void Dispose()
@@ -73,42 +75,42 @@ public class ForumPostScraperTests : IDisposable
     [Fact]
     public void Constructor_NullSessionManager_Throws()
     {
-        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, _logger);
+        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _languageTagParser, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("sessionManager");
     }
 
     [Fact]
     public void Constructor_NullForumScraper_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _urlValidator, _responseValidator, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _languageTagParser, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("forumScraper");
     }
 
     [Fact]
     public void Constructor_NullLinkExtractor_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _urlValidator, _responseValidator, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _languageTagParser, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("linkExtractor");
     }
 
     [Fact]
     public void Constructor_NullUrlValidator_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!, _responseValidator, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _languageTagParser, null!, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("urlValidator");
     }
 
     [Fact]
     public void Constructor_NullResponseValidator_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, null!, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _languageTagParser, _urlValidator, null!, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("responseValidator");
     }
 
     [Fact]
     public void Constructor_NullLogger_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, null!);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _languageTagParser, _urlValidator, _responseValidator, null!);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -468,6 +470,125 @@ public class ForumPostScraperTests : IDisposable
         result.Success.Should().BeTrue();
         await _sessionManager.DidNotReceive().RefreshSessionAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>());
     }
+
+    // --- #100: ExtractThreadTitle ---
+
+    [Fact]
+    public void ExtractThreadTitle_NullHtml_ReturnsNull()
+    {
+        ForumPostScraper.ExtractThreadTitle(null!).Should().BeNull();
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_EmptyHtml_ReturnsNull()
+    {
+        ForumPostScraper.ExtractThreadTitle("").Should().BeNull();
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_NoTitleTag_ReturnsNull()
+    {
+        ForumPostScraper.ExtractThreadTitle("<html><body>No title</body></html>").Should().BeNull();
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_PhpBB2Title_ExtractsThreadTitle()
+    {
+        var html = "<html><head><title>Forum :: View topic - Tenkrát poprvé / Never Have I Ever / CZ, EN</title></head></html>";
+        ForumPostScraper.ExtractThreadTitle(html).Should().Be("Tenkrát poprvé / Never Have I Ever / CZ, EN");
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_DoubleColonSeparator_ExtractsAfterLast()
+    {
+        var html = "<html><head><title>Forum Name :: Thread Title Here</title></head></html>";
+        ForumPostScraper.ExtractThreadTitle(html).Should().Be("Thread Title Here");
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_SimpleTitleTag_ReturnsFull()
+    {
+        var html = "<html><head><title>Simple Page Title</title></head></html>";
+        ForumPostScraper.ExtractThreadTitle(html).Should().Be("Simple Page Title");
+    }
+
+    [Fact]
+    public void ExtractThreadTitle_ViewTopicCaseInsensitive_Extracts()
+    {
+        var html = "<html><head><title>Forum :: view topic - My Thread</title></head></html>";
+        ForumPostScraper.ExtractThreadTitle(html).Should().Be("My Thread");
+    }
+
+    // --- #100: Language integration in ScrapePostAsync ---
+
+    [Fact]
+    public async Task ScrapePostAsync_WithLanguageInTitle_SetsLanguageOnLinks()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+        var htmlWithTitle = "<html><head><title>Forum :: View topic - Čmuchalovci 2 / Bloodhounds / CZ, EN</title></head><body>Forum page</body></html>";
+
+        // Return HTML with a title containing language tags
+        _httpHandler.SetResponse(htmlWithTitle);
+
+        var posts = new List<PostContent>
+        {
+            new() { ThreadUrl = postUrl, PostIndex = 0, HtmlContent = "<p><a href='https://dl.example.com/file.mkv'>link</a></p>", PlainTextContent = "Post 1" }
+        };
+
+        _forumScraper.ExtractPostContentAsync(postUrl, Arg.Any<CancellationToken>())
+            .Returns(posts);
+
+        var link = new Link { Url = "https://dl.example.com/file.mkv", PostUrl = postUrl, LinkTypeId = 1, RunId = 1 };
+        _linkExtractor.ExtractLinksAsync(Arg.Any<string>(), 1, postUrl, Arg.Any<CancellationToken>())
+            .Returns(new List<Link> { link });
+
+        // Use real LanguageTagParser for integration-style test
+        _languageTagParser.GetLanguageString("Čmuchalovci 2 / Bloodhounds / CZ, EN").Returns("cs,en");
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeTrue();
+        result.ExtractedLinks.Should().HaveCount(1);
+        result.ExtractedLinks[0].Language.Should().Be("cs,en");
+    }
+
+    [Fact]
+    public async Task ScrapePostAsync_WithNoLanguageInTitle_LeavesLanguageNull()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+        var htmlWithTitle = "<html><head><title>Forum :: View topic - Simple Movie Title</title></head><body>Forum page</body></html>";
+
+        _httpHandler.SetResponse(htmlWithTitle);
+
+        var posts = new List<PostContent>
+        {
+            new() { ThreadUrl = postUrl, PostIndex = 0, HtmlContent = "<p><a href='https://dl.example.com/file.mkv'>link</a></p>", PlainTextContent = "Post 1" }
+        };
+
+        _forumScraper.ExtractPostContentAsync(postUrl, Arg.Any<CancellationToken>())
+            .Returns(posts);
+
+        var link = new Link { Url = "https://dl.example.com/file.mkv", PostUrl = postUrl, LinkTypeId = 1, RunId = 1 };
+        _linkExtractor.ExtractLinksAsync(Arg.Any<string>(), 1, postUrl, Arg.Any<CancellationToken>())
+            .Returns(new List<Link> { link });
+
+        _languageTagParser.GetLanguageString("Simple Movie Title").Returns((string?)null);
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeTrue();
+        result.ExtractedLinks.Should().HaveCount(1);
+        result.ExtractedLinks[0].Language.Should().BeNull();
+    }
+
+    // --- #100: Constructor null check for ILanguageTagParser ---
+
+    [Fact]
+    public void Constructor_NullLanguageTagParser_Throws()
+    {
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!, _urlValidator, _responseValidator, _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("languageTagParser");
+    }
 }
 
 /// <summary>
@@ -475,13 +596,18 @@ public class ForumPostScraperTests : IDisposable
 /// </summary>
 internal sealed class MockHttpMessageHandler : HttpMessageHandler
 {
-    private readonly string _responseContent;
+    private string _responseContent;
     private readonly HttpStatusCode _statusCode;
 
     public MockHttpMessageHandler(string responseContent, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
         _responseContent = responseContent;
         _statusCode = statusCode;
+    }
+
+    public void SetResponse(string content)
+    {
+        _responseContent = content;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(
