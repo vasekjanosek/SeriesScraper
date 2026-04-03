@@ -120,9 +120,10 @@ try
     // Forum CRUD (#9)
     builder.Services.AddScoped<IForumCrudService, ForumCrudService>();
 
-    // DataProtection for credential encryption (#9 AC#7)
+    // DataProtection for credential encryption (#9 AC#7, #97 — persist keys to DB)
     builder.Services.AddDataProtection()
-        .SetApplicationName("SeriesScraper");
+        .SetApplicationName("SeriesScraper")
+        .PersistKeysToDbContext<AppDbContext>();
     builder.Services.AddSingleton<ICredentialProtector, CredentialProtector>();
 
     var app = builder.Build();
