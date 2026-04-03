@@ -11,7 +11,6 @@ using SeriesScraper.Infrastructure.BackgroundServices;
 using SeriesScraper.Infrastructure.Services;
 using SeriesScraper.Infrastructure.Services.Imdb;
 using SeriesScraper.Web.BackgroundServices;
-using SeriesScraper.Web.Data;
 using SeriesScraper.Web.Logging;
 
 // Set global regex timeout as safety net for ReDoS prevention (#48)
@@ -43,7 +42,6 @@ try
     // Add services to the container.
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
-    builder.Services.AddSingleton<WeatherForecastService>();
     builder.Services.AddHealthChecks();
 
     // Antiforgery for any HTTP POST endpoints (#47)
