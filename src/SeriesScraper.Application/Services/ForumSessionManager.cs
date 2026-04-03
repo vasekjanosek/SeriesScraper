@@ -187,7 +187,8 @@ public sealed class ForumSessionManager : IForumSessionManager
         var credentials = new ForumCredentials
         {
             Username = forum.Username,
-            Password = password
+            Password = password,
+            BaseUrl = forum.BaseUrl
         };
 
         // Strategy 2: Playwright headless browser (handles reCAPTCHA v3)
