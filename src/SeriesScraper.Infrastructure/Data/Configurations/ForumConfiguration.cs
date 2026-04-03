@@ -30,6 +30,9 @@ public class ForumConfiguration : IEntityTypeConfiguration<Forum>
             .IsRequired()
             .HasMaxLength(100);
         
+        entity.Property(e => e.EncryptedPassword)
+            .HasMaxLength(2000);
+        
         entity.Property(e => e.CrawlDepth)
             .HasDefaultValue(1);
         

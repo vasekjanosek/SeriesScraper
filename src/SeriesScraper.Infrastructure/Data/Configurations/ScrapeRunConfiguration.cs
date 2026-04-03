@@ -33,10 +33,13 @@ public class ScrapeRunConfiguration : IEntityTypeConfiguration<ScrapeRun>
         entity.Property(e => e.ProcessedItems)
             .HasDefaultValue(0);
         
+        entity.Property(e => e.ForumName)
+            .HasMaxLength(200);
+        
         entity.HasOne(e => e.Forum)
             .WithMany(f => f.ScrapeRuns)
             .HasForeignKey(e => e.ForumId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
         
         entity.HasMany(e => e.Links)
             .WithOne(l => l.Run)

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SeriesScraper.Application.Security;
@@ -111,6 +112,14 @@ try
     // Security services (#45, #46)
     builder.Services.AddSingleton<ISanitizer, HtmlContentSanitizer>();
     builder.Services.AddScoped<IUrlValidator, ForumUrlValidator>();
+
+    // Forum CRUD (#9)
+    builder.Services.AddScoped<IForumCrudService, ForumCrudService>();
+
+    // DataProtection for credential encryption (#9 AC#7)
+    builder.Services.AddDataProtection()
+        .SetApplicationName("SeriesScraper");
+    builder.Services.AddSingleton<ICredentialProtector, CredentialProtector>();
 
     var app = builder.Build();
 

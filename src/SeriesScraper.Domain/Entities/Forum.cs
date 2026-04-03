@@ -31,6 +31,12 @@ public class Forum
         }
     }
     
+    /// <summary>
+    /// Encrypted password for forum authentication, protected via DataProtection API.
+    /// Null when no password has been stored yet.
+    /// </summary>
+    public string? EncryptedPassword { get; set; }
+    
     public int CrawlDepth { get; set; } = 1;
     public int PolitenessDelayMs { get; set; } = 500;
     public bool IsActive { get; set; } = true;

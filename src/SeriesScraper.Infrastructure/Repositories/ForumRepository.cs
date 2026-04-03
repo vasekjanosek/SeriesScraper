@@ -25,4 +25,36 @@ public class ForumRepository : IForumRepository
             .Where(f => f.IsActive)
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<Forum>> GetAllAsync(CancellationToken ct = default)
+    {
+        return await _context.Forums
+            .OrderBy(f => f.Name)
+            .ToListAsync(ct);
+    }
+
+    public async Task AddAsync(Forum forum, CancellationToken ct = default)
+    {
+        _context.Forums.Add(forum);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(Forum forum, CancellationToken ct = default)
+    {
+        _context.Forums.Update(forum);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(Forum forum, CancellationToken ct = default)
+    {
+        _context.Forums.Remove(forum);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task DenormalizeForumNameOnRunsAsync(int forumId, string forumName, CancellationToken ct = default)
+    {
+        await _context.ScrapeRuns
+            .Where(r => r.ForumId == forumId)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.ForumName, forumName), ct);
+    }
 }

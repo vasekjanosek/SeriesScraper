@@ -8,7 +8,7 @@ namespace SeriesScraper.Domain.ValueObjects;
 public record RunProgressDto
 {
     public int RunId { get; init; }
-    public int ForumId { get; init; }
+    public int? ForumId { get; init; }
     public string ForumName { get; init; } = string.Empty;
     public ScrapeRunStatus Status { get; init; }
     public DateTime StartedAt { get; init; }

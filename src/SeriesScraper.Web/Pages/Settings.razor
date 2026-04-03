@@ -3,10 +3,30 @@
 @using SeriesScraper.Domain.Interfaces
 @inject ISettingsService SettingsService
 @inject IAppInfoService AppInfoService
+@inject IForumCrudService ForumCrudService
 
 <PageTitle>Settings & Info</PageTitle>
 
 <h3>Settings & Info</h3>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <button class="nav-link @(_activeTab == "forums" ? "active" : "")" @onclick='() => _activeTab = "forums"'>
+            Forums
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(_activeTab == "settings" ? "active" : "")" @onclick='() => _activeTab = "settings"'>
+            Application Settings
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(_activeTab == "info" ? "active" : "")" @onclick='() => _activeTab = "info"'>
+            Info
+        </button>
+    </li>
+</ul>
 
 @if (_loading)
 {
@@ -27,148 +47,317 @@ else
         <div class="alert alert-success">@_successMessage</div>
     }
 
-    <!-- Settings Section -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Application Settings</h5>
-        </div>
-        <div class="card-body">
-            @if (_settings is not null && _settings.Count > 0)
-            {
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Key</th>
-                            <th>Value</th>
-                            <th>Description</th>
-                            <th>Last Modified</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var setting in _settings)
-                        {
-                            <tr>
-                                <td><code>@setting.Key</code></td>
-                                <td>
-                                    <input type="text" class="form-control form-control-sm"
-                                           value="@GetEditValue(setting.Key)"
-                                           @onchange="(e) => OnSettingChanged(setting.Key, e.Value?.ToString())" />
-                                </td>
-                                <td class="text-muted">@setting.Description</td>
-                                <td>@setting.LastModifiedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                <button class="btn btn-primary" @onclick="SaveSettings" disabled="@(_pendingChanges.Count == 0)">
-                    Save Changes (@_pendingChanges.Count)
-                </button>
-            }
-            else
-            {
-                <div class="text-muted">No settings found.</div>
-            }
-        </div>
-    </div>
-
-    <!-- IMDB Import Status -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">IMDB Import Status</h5>
-        </div>
-        <div class="card-body">
-            @if (_imdbStatus is not null)
-            {
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Last Import</dt>
-                    <dd class="col-sm-8">@(_imdbStatus.LastImportDate?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</dd>
-
-                    <dt class="col-sm-4">Rows Imported</dt>
-                    <dd class="col-sm-8">@_imdbStatus.RowsImported.ToString("N0")</dd>
-
-                    <dt class="col-sm-4">Status</dt>
-                    <dd class="col-sm-8">
-                        @if (_imdbStatus.Status is not null)
-                        {
-                            <span class="badge @GetStatusBadgeClass(_imdbStatus.Status)">@_imdbStatus.Status</span>
-                        }
-                        else
-                        {
-                            <span class="text-muted">No import run yet</span>
-                        }
-                    </dd>
-
-                    <dt class="col-sm-4">Next Scheduled</dt>
-                    <dd class="col-sm-8">@(_imdbStatus.NextScheduledRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "—")</dd>
-                </dl>
-            }
-        </div>
-    </div>
-
-    <!-- App Info -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Application Info</h5>
-        </div>
-        <div class="card-body">
-            @if (_appInfo is not null)
-            {
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Version</dt>
-                    <dd class="col-sm-8">@_appInfo.Version</dd>
-
-                    <dt class="col-sm-4">Uptime</dt>
-                    <dd class="col-sm-8">@FormatUptime(_appInfo.Uptime)</dd>
-
-                    <dt class="col-sm-4">PostgreSQL</dt>
-                    <dd class="col-sm-8">
-                        @if (_appInfo.DatabaseConnected)
-                        {
-                            <span class="badge bg-success">Connected</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-danger">Disconnected</span>
-                        }
-                    </dd>
-                </dl>
-
-                @if (_dbStats is not null && _dbStats.TableCounts.Count > 0)
+    @if (_activeTab == "forums")
+    {
+        <!-- Forums Management Section -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Forum Management</h5>
+                @if (!_showForumForm)
                 {
-                    <h6 class="mt-3">Database Statistics</h6>
-                    <table class="table table-sm">
+                    <button class="btn btn-primary btn-sm" @onclick="ShowAddForumForm">
+                        <span class="oi oi-plus" aria-hidden="true"></span> Add Forum
+                    </button>
+                }
+            </div>
+            <div class="card-body">
+                @if (_showForumForm)
+                {
+                    <div class="border rounded p-3 mb-3 bg-light">
+                        <h6>@(_editingForumId.HasValue ? "Edit Forum" : "Add Forum")</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       @bind="_formName" placeholder="My Forum" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Base URL</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       @bind="_formBaseUrl" placeholder="https://forum.example.com" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       @bind="_formUsername" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Credential Key (env var)</label>
+                                <input type="text" class="form-control form-control-sm"
+                                       @bind="_formCredentialKey" placeholder="FORUM_MYSITE" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Password</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="@(_showPassword ? "text" : "password")"
+                                           class="form-control form-control-sm"
+                                           @bind="_formPassword"
+                                           placeholder="@(_editingForumId.HasValue ? "••••••••" : "")" />
+                                    <button class="btn btn-outline-secondary" type="button"
+                                            @onclick="() => _showPassword = !_showPassword">
+                                        <span class="oi @(_showPassword ? "oi-eye" : "oi-lock-locked")" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                @if (_editingForumId.HasValue)
+                                {
+                                    <small class="text-muted">Leave blank to keep existing password</small>
+                                }
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Crawl Depth</label>
+                                <input type="number" class="form-control form-control-sm"
+                                       @bind="_formCrawlDepth" min="1" max="10" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Politeness Delay (ms)</label>
+                                <input type="number" class="form-control form-control-sm"
+                                       @bind="_formPolitenessDelayMs" min="100" max="10000" />
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary btn-sm" @onclick="SaveForum">
+                                @(_editingForumId.HasValue ? "Update" : "Create")
+                            </button>
+                            <button class="btn btn-secondary btn-sm ms-2" @onclick="CancelForumForm">Cancel</button>
+                        </div>
+                    </div>
+                }
+
+                @if (_forums is not null && _forums.Count > 0)
+                {
+                    <table class="table table-sm table-hover">
                         <thead>
                             <tr>
-                                <th>Table</th>
-                                <th>Row Count</th>
+                                <th>Name</th>
+                                <th>Base URL</th>
+                                <th>Username</th>
+                                <th>Credential Key</th>
+                                <th>Depth</th>
+                                <th>Delay</th>
+                                <th>Active</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var table in _dbStats.TableCounts)
+                            @foreach (var forum in _forums)
                             {
                                 <tr>
-                                    <td>@table.TableName</td>
-                                    <td>@table.RowCount.ToString("N0")</td>
+                                    <td>@forum.Name</td>
+                                    <td><code>@forum.BaseUrl</code></td>
+                                    <td>@forum.Username</td>
+                                    <td><code>@forum.CredentialKey</code></td>
+                                    <td>@forum.CrawlDepth</td>
+                                    <td>@forum.PolitenessDelayMs ms</td>
+                                    <td>
+                                        @if (forum.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => EditForum(forum)">
+                                            <span class="oi oi-pencil" aria-hidden="true"></span>
+                                        </button>
+                                        @if (_confirmDeleteForumId == forum.ForumId)
+                                        {
+                                            <button class="btn btn-danger btn-sm me-1" @onclick="() => ConfirmDeleteForum(forum.ForumId)">
+                                                Confirm
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" @onclick="() => _confirmDeleteForumId = null">
+                                                Cancel
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmDeleteForumId = forum.ForumId">
+                                                <span class="oi oi-trash" aria-hidden="true"></span>
+                                            </button>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 }
-            }
+                else
+                {
+                    <div class="text-muted">No forums configured. Click "Add Forum" to get started.</div>
+                }
+            </div>
         </div>
-    </div>
+    }
+
+    @if (_activeTab == "settings")
+    {
+        <!-- Settings Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Application Settings</h5>
+            </div>
+            <div class="card-body">
+                @if (_settings is not null && _settings.Count > 0)
+                {
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th>Description</th>
+                                <th>Last Modified</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var setting in _settings)
+                            {
+                                <tr>
+                                    <td><code>@setting.Key</code></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               value="@GetEditValue(setting.Key)"
+                                               @onchange="(e) => OnSettingChanged(setting.Key, e.Value?.ToString())" />
+                                    </td>
+                                    <td class="text-muted">@setting.Description</td>
+                                    <td>@setting.LastModifiedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <button class="btn btn-primary" @onclick="SaveSettings" disabled="@(_pendingChanges.Count == 0)">
+                        Save Changes (@_pendingChanges.Count)
+                    </button>
+                }
+                else
+                {
+                    <div class="text-muted">No settings found.</div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_activeTab == "info")
+    {
+        <!-- IMDB Import Status -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">IMDB Import Status</h5>
+            </div>
+            <div class="card-body">
+                @if (_imdbStatus is not null)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Last Import</dt>
+                        <dd class="col-sm-8">@(_imdbStatus.LastImportDate?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</dd>
+
+                        <dt class="col-sm-4">Rows Imported</dt>
+                        <dd class="col-sm-8">@_imdbStatus.RowsImported.ToString("N0")</dd>
+
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            @if (_imdbStatus.Status is not null)
+                            {
+                                <span class="badge @GetStatusBadgeClass(_imdbStatus.Status)">@_imdbStatus.Status</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No import run yet</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-4">Next Scheduled</dt>
+                        <dd class="col-sm-8">@(_imdbStatus.NextScheduledRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "—")</dd>
+                    </dl>
+                }
+            </div>
+        </div>
+
+        <!-- App Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Application Info</h5>
+            </div>
+            <div class="card-body">
+                @if (_appInfo is not null)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Version</dt>
+                        <dd class="col-sm-8">@_appInfo.Version</dd>
+
+                        <dt class="col-sm-4">Uptime</dt>
+                        <dd class="col-sm-8">@FormatUptime(_appInfo.Uptime)</dd>
+
+                        <dt class="col-sm-4">PostgreSQL</dt>
+                        <dd class="col-sm-8">
+                            @if (_appInfo.DatabaseConnected)
+                            {
+                                <span class="badge bg-success">Connected</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Disconnected</span>
+                            }
+                        </dd>
+                    </dl>
+
+                    @if (_dbStats is not null && _dbStats.TableCounts.Count > 0)
+                    {
+                        <h6 class="mt-3">Database Statistics</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Row Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var table in _dbStats.TableCounts)
+                                {
+                                    <tr>
+                                        <td>@table.TableName</td>
+                                        <td>@table.RowCount.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
     private bool _loading = true;
     private string? _errorMessage;
     private string? _successMessage;
+    private string _activeTab = "forums";
 
+    // Settings state
     private IReadOnlyList<Setting>? _settings;
     private ImdbImportStatusDto? _imdbStatus;
     private AppInfoDto? _appInfo;
     private DatabaseStatsDto? _dbStats;
     private readonly Dictionary<string, string> _pendingChanges = new();
+
+    // Forum state
+    private IReadOnlyList<ForumDto>? _forums;
+    private bool _showForumForm;
+    private int? _editingForumId;
+    private int? _confirmDeleteForumId;
+    private bool _showPassword;
+
+    // Forum form fields
+    private string _formName = "";
+    private string _formBaseUrl = "";
+    private string _formUsername = "";
+    private string _formCredentialKey = "";
+    private string _formPassword = "";
+    private int _formCrawlDepth = 1;
+    private int _formPolitenessDelayMs = 500;
+    private bool _formIsActive = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -182,6 +371,7 @@ else
 
         try
         {
+            _forums = await ForumCrudService.GetAllForumsAsync();
             _settings = await SettingsService.GetAllSettingsAsync();
             _imdbStatus = await SettingsService.GetImdbImportStatusAsync();
             _appInfo = await AppInfoService.GetAppInfoAsync();
@@ -196,6 +386,115 @@ else
             _loading = false;
         }
     }
+
+    // Forum CRUD methods
+
+    private void ShowAddForumForm()
+    {
+        _editingForumId = null;
+        _formName = "";
+        _formBaseUrl = "";
+        _formUsername = "";
+        _formCredentialKey = "";
+        _formPassword = "";
+        _formCrawlDepth = 1;
+        _formPolitenessDelayMs = 500;
+        _formIsActive = true;
+        _showPassword = false;
+        _showForumForm = true;
+    }
+
+    private void EditForum(ForumDto forum)
+    {
+        _editingForumId = forum.ForumId;
+        _formName = forum.Name;
+        _formBaseUrl = forum.BaseUrl;
+        _formUsername = forum.Username;
+        _formCredentialKey = forum.CredentialKey;
+        _formPassword = "";
+        _formCrawlDepth = forum.CrawlDepth;
+        _formPolitenessDelayMs = forum.PolitenessDelayMs;
+        _formIsActive = forum.IsActive;
+        _showPassword = false;
+        _showForumForm = true;
+    }
+
+    private void CancelForumForm()
+    {
+        _showForumForm = false;
+        _editingForumId = null;
+    }
+
+    private async Task SaveForum()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            if (_editingForumId.HasValue)
+            {
+                var dto = new UpdateForumDto
+                {
+                    Name = _formName,
+                    BaseUrl = _formBaseUrl,
+                    Username = _formUsername,
+                    CredentialKey = _formCredentialKey,
+                    Password = string.IsNullOrEmpty(_formPassword) ? null : _formPassword,
+                    CrawlDepth = _formCrawlDepth,
+                    PolitenessDelayMs = _formPolitenessDelayMs,
+                    IsActive = _formIsActive
+                };
+                await ForumCrudService.UpdateForumAsync(_editingForumId.Value, dto);
+                _successMessage = $"Forum '{_formName}' updated.";
+            }
+            else
+            {
+                var dto = new CreateForumDto
+                {
+                    Name = _formName,
+                    BaseUrl = _formBaseUrl,
+                    Username = _formUsername,
+                    CredentialKey = _formCredentialKey,
+                    Password = string.IsNullOrEmpty(_formPassword) ? null : _formPassword,
+                    CrawlDepth = _formCrawlDepth,
+                    PolitenessDelayMs = _formPolitenessDelayMs
+                };
+                await ForumCrudService.CreateForumAsync(dto);
+                _successMessage = $"Forum '{_formName}' created.";
+            }
+
+            _showForumForm = false;
+            _editingForumId = null;
+            _forums = await ForumCrudService.GetAllForumsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ConfirmDeleteForum(int forumId)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            var forum = _forums?.FirstOrDefault(f => f.ForumId == forumId);
+            await ForumCrudService.DeleteForumAsync(forumId);
+            _successMessage = $"Forum '{forum?.Name}' deleted.";
+            _confirmDeleteForumId = null;
+            _forums = await ForumCrudService.GetAllForumsAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            _confirmDeleteForumId = null;
+        }
+    }
+
+    // Settings methods
 
     private string GetEditValue(string key)
     {
@@ -228,7 +527,6 @@ else
             _successMessage = $"Saved {_pendingChanges.Count} setting(s).";
             _pendingChanges.Clear();
 
-            // Reload to show updated LastModifiedAt
             _settings = await SettingsService.GetAllSettingsAsync();
         }
         catch (Exception ex)
