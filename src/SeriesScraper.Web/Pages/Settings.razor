@@ -26,6 +26,11 @@
             Info
         </button>
     </li>
+    <li class="nav-item">
+        <button class="nav-link @(_activeTab == "session" ? "active" : "")" @onclick='() => _activeTab = "session"'>
+            Session Cookies
+        </button>
+    </li>
 </ul>
 
 @if (_loading)
@@ -327,6 +332,52 @@ else
             </div>
         </div>
     }
+
+    @if (_activeTab == "session")
+    {
+        <!-- Manual Session Cookie Injection (#89) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Manual Session Cookie Injection</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Fallback for reCAPTCHA-protected forums.</strong>
+                    If Playwright headless login fails, you can manually paste session cookies here.
+                    To get cookie values: log in via your browser, open DevTools (F12) → Application → Cookies,
+                    and copy the cookie string (e.g. <code>warforum_sid=abc123</code>).
+                </div>
+
+                @if (_forums is not null && _forums.Count > 0)
+                {
+                    @foreach (var forum in _forums)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">@forum.Name (ID: @forum.ForumId)</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><code>forum.@(forum.ForumId).session_cookie</code></span>
+                                <input type="text" class="form-control"
+                                       placeholder="warforum_sid=abc123; warforum_data=..."
+                                       value="@GetSessionCookieValue(forum.ForumId)"
+                                       @onchange="(e) => OnSessionCookieChanged(forum.ForumId, e.Value?.ToString())" />
+                            </div>
+                            <small class="text-muted">
+                                Format: <code>name=value; name2=value2</code> — leave empty to use Playwright auto-login.
+                            </small>
+                        </div>
+                    }
+                    <button class="btn btn-primary" @onclick="SaveSessionCookies"
+                            disabled="@(_pendingCookieChanges.Count == 0)">
+                        Save Session Cookies (@_pendingCookieChanges.Count)
+                    </button>
+                }
+                else
+                {
+                    <div class="text-muted">No forums configured. Add a forum first.</div>
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -376,6 +427,20 @@ else
             _imdbStatus = await SettingsService.GetImdbImportStatusAsync();
             _appInfo = await AppInfoService.GetAppInfoAsync();
             _dbStats = await AppInfoService.GetDatabaseStatsAsync();
+
+            // Load existing session cookie values for each forum
+            if (_forums is not null && _settings is not null)
+            {
+                foreach (var forum in _forums)
+                {
+                    var key = $"forum.{forum.ForumId}.session_cookie";
+                    var setting = _settings.FirstOrDefault(s => s.Key == key);
+                    if (setting is not null && !string.IsNullOrEmpty(setting.Value))
+                    {
+                        _sessionCookieValues[forum.ForumId] = setting.Value;
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -551,5 +616,52 @@ else
         if (uptime.TotalHours >= 1)
             return $"{(int)uptime.TotalHours}h {uptime.Minutes}m";
         return $"{(int)uptime.TotalMinutes}m {uptime.Seconds}s";
+    }
+
+    // ── Session Cookie Injection (#89) ─────────────────────────────────
+
+    private readonly Dictionary<int, string> _pendingCookieChanges = new();
+    private readonly Dictionary<int, string> _sessionCookieValues = new();
+
+    private string GetSessionCookieValue(int forumId)
+    {
+        if (_pendingCookieChanges.TryGetValue(forumId, out var pending))
+            return pending;
+        if (_sessionCookieValues.TryGetValue(forumId, out var current))
+            return current;
+        return "";
+    }
+
+    private void OnSessionCookieChanged(int forumId, string? value)
+    {
+        value ??= "";
+        var original = _sessionCookieValues.GetValueOrDefault(forumId, "");
+        if (value == original)
+            _pendingCookieChanges.Remove(forumId);
+        else
+            _pendingCookieChanges[forumId] = value;
+    }
+
+    private async Task SaveSessionCookies()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            foreach (var (forumId, cookieValue) in _pendingCookieChanges)
+            {
+                var key = $"forum.{forumId}.session_cookie";
+                await SettingsService.UpdateSettingAsync(key, cookieValue);
+                _sessionCookieValues[forumId] = cookieValue;
+            }
+
+            _successMessage = $"Saved {_pendingCookieChanges.Count} session cookie(s).";
+            _pendingCookieChanges.Clear();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to save session cookies: {ex.Message}";
+        }
     }
 }

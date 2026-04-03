@@ -55,7 +55,16 @@ try
     builder.Services.AddSingleton<IScrapingJobQueue, ScrapingJobQueue>();
 
     // Session management (scoped — one session manager per scope/circuit)
-    builder.Services.AddScoped<IForumSessionManager, ForumSessionManager>();
+    builder.Services.AddScoped<IForumSessionManager>(sp =>
+        new ForumSessionManager(
+            sp.GetRequiredService<IForumScraper>(),
+            sp.GetRequiredService<IForumCredentialService>(),
+            sp.GetRequiredService<ILogger<ForumSessionManager>>(),
+            playwrightAuthenticator: sp.GetService<IPlaywrightAuthenticator>(),
+            settingRepository: sp.GetService<ISettingRepository>()));
+
+    // Playwright authenticator for reCAPTCHA v3 protected forums (#89)
+    builder.Services.AddSingleton<IPlaywrightAuthenticator, PlaywrightAuthenticator>();
 
     // Scoped services
     builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();

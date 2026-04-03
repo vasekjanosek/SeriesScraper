@@ -562,4 +562,360 @@ public class ForumSessionManagerTests : IDisposable
             Arg.Any<Exception?>(),
             Arg.Any<Func<object, Exception?, string>>());
     }
+
+    // ── Playwright Authentication (#89) ─────────────────────────────
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_PlaywrightAvailable_UsesPlaywrightFirst()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        var cookieContainer = new CookieContainer();
+        cookieContainer.Add(new Uri("https://forum.example.com"), new System.Net.Cookie("warforum_sid", "test123"));
+
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(cookieContainer);
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+
+        var client = await sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+        client.BaseAddress.Should().Be(new Uri("https://forum.example.com"));
+
+        // Playwright was called
+        await playwrightAuth.Received(1).AuthenticateAsync(
+            "https://forum.example.com/login.php",
+            Arg.Is<ForumCredentials>(c => c.Username == "testuser" && c.Password == "secret"),
+            Arg.Any<CancellationToken>());
+
+        // IForumScraper was NOT called (Playwright succeeded)
+        await _forumScraper.DidNotReceive().AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_PlaywrightFails_FallsBackToForumScraper()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Playwright browser failed"));
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var client = await sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+
+        // Playwright was called first
+        await playwrightAuth.Received(1).AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+
+        // IForumScraper was called as fallback
+        await _forumScraper.Received(1).AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_PlaywrightFailsWithCancellation_DoesNotFallBack()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new OperationCanceledException("Cancelled"));
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+
+        var act = () => sut.GetAuthenticatedClientAsync(forum);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+
+        // IForumScraper should NOT be called — cancellation should propagate
+        await _forumScraper.DidNotReceive().AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_PlaywrightConstructsCorrectLoginUrl()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(new CookieContainer());
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth);
+
+        var forum = CreateForum();
+        forum.BaseUrl = "https://warforum.xyz/";
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+
+        await sut.GetAuthenticatedClientAsync(forum);
+
+        await playwrightAuth.Received(1).AuthenticateAsync(
+            "https://warforum.xyz/login.php",
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_NoPlaywrightNoManualCookie_UsesForumScraper()
+    {
+        // Default _sut has no Playwright and no SettingRepository
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var client = await _sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+        await _forumScraper.Received(1).AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    // ── Manual Cookie Injection (#89) ───────────────────────────────
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookieSet_UsesManualCookie()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("warforum_sid=manual123; warforum_data=xyz");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+
+        var client = await sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+        client.BaseAddress.Should().Be(new Uri("https://forum.example.com"));
+
+        // No Playwright or ForumScraper auth should be called
+        await _forumScraper.DidNotReceive().AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+
+        // Credential resolution not needed for manual cookie
+        _credentialService.DidNotReceive().ResolveCredential(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookieEmpty_FallsThrough()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var client = await sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+
+        // Empty manual cookie → falls through to IForumScraper
+        await _forumScraper.Received(1).AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookieNull_FallsThrough()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        await sut.GetAuthenticatedClientAsync(forum);
+
+        await _forumScraper.Received(1).AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookiePrioritizedOverPlaywright()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("warforum_sid=fromSettings");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+
+        var client = await sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+
+        // Manual cookie takes priority — neither Playwright nor ForumScraper called
+        await playwrightAuth.DidNotReceive().AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+        await _forumScraper.DidNotReceive().AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookieUsesCorrectSettingKey()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum(id: 42);
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        await sut.GetAuthenticatedClientAsync(forum);
+
+        // Verify the correct setting key was queried
+        await settingRepo.Received(1).GetValueAsync("forum.42.session_cookie", Arg.Any<CancellationToken>());
+    }
+
+    // ── ManualCookieSettingPrefix/Suffix Constants ──────────────────
+
+    [Fact]
+    public void ManualCookieSettingPrefix_IsCorrect()
+    {
+        ForumSessionManager.ManualCookieSettingPrefix.Should().Be("forum.");
+    }
+
+    [Fact]
+    public void ManualCookieSettingSuffix_IsCorrect()
+    {
+        ForumSessionManager.ManualCookieSettingSuffix.Should().Be(".session_cookie");
+    }
+
+    // ── Full Auth Strategy Chain ────────────────────────────────────
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_AllStrategiesFail_ThrowsFromForumScraper()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Playwright failed"));
+
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var act = () => sut.GetAuthenticatedClientAsync(forum);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Authentication failed*");
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_PlaywrightSucceeds_SessionIsValid()
+    {
+        var playwrightAuth = Substitute.For<IPlaywrightAuthenticator>();
+        playwrightAuth.AuthenticateAsync(
+            Arg.Any<string>(), Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(new CookieContainer());
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            playwrightAuthenticator: playwrightAuth);
+
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+
+        await sut.GetAuthenticatedClientAsync(forum);
+
+        sut.IsSessionValid(forum.ForumId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookie_SessionIsValid()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("warforum_sid=test");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+
+        await sut.GetAuthenticatedClientAsync(forum);
+
+        sut.IsSessionValid(forum.ForumId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_ManualCookieReusesSession()
+    {
+        var settingRepo = Substitute.For<ISettingRepository>();
+        settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
+            .Returns("warforum_sid=test");
+
+        using var sut = new ForumSessionManager(
+            _forumScraper, _credentialService, _logger,
+            settingRepository: settingRepo);
+
+        var forum = CreateForum();
+
+        var client1 = await sut.GetAuthenticatedClientAsync(forum);
+        var client2 = await sut.GetAuthenticatedClientAsync(forum);
+
+        client1.Should().BeSameAs(client2);
+
+        // Setting repo only queried once (for the initial auth, not for reuse)
+        await settingRepo.Received(1).GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>());
+    }
 }
