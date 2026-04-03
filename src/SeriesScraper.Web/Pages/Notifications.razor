@@ -1,0 +1,105 @@
+@page "/notifications"
+@using SeriesScraper.Domain.Interfaces
+@inject IWatchlistNotificationService NotificationService
+
+<PageTitle>Notifications</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Notifications</h3>
+    @if (_notifications is not null && _notifications.Any(n => !n.IsRead))
+    {
+        <button class="btn btn-outline-secondary btn-sm" @onclick="MarkAllRead">
+            <span class="oi oi-check" aria-hidden="true"></span> Mark all as read
+        </button>
+    }
+</div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_notifications is null || _notifications.Count == 0)
+{
+    <div class="alert alert-info">No notifications yet. Notifications appear when scrape runs find links matching your watchlist.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Title</th>
+                    <th>Link</th>
+                    <th>Found At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var n in _notifications)
+                {
+                    <tr class="@(n.IsRead ? "text-muted" : "fw-bold")">
+                        <td>@n.WatchlistTitle</td>
+                        <td>
+                            <a href="@n.LinkUrl" target="_blank" rel="noopener noreferrer" class="text-truncate d-inline-block" style="max-width: 400px;">
+                                @n.LinkUrl
+                            </a>
+                        </td>
+                        <td>@n.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @if (n.IsRead)
+                            {
+                                <span class="badge bg-secondary">Read</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-primary">Unread</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!n.IsRead)
+                            {
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => MarkRead(n.WatchlistNotificationId)">
+                                    Mark read
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<WatchlistNotificationDto>? _notifications;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotifications();
+    }
+
+    private async Task LoadNotifications()
+    {
+        _loading = true;
+        _notifications = await NotificationService.GetAllNotificationsAsync();
+        _loading = false;
+    }
+
+    private async Task MarkRead(int notificationId)
+    {
+        await NotificationService.MarkAsReadAsync(notificationId);
+        await LoadNotifications();
+    }
+
+    private async Task MarkAllRead()
+    {
+        await NotificationService.MarkAllAsReadAsync();
+        await LoadNotifications();
+    }
+}

@@ -109,6 +109,10 @@ try
     // Watchlist service (#19)
     builder.Services.AddScoped<IWatchlistService, WatchlistService>();
 
+    // Watchlist notifications (#103)
+    builder.Services.AddScoped<IWatchlistNotificationService, WatchlistNotificationService>();
+    builder.Services.AddScoped<IWatchlistNotificationRepository, WatchlistNotificationRepository>();
+
     // History service (#33)
     builder.Services.AddScoped<IHistoryService, HistoryService>();
     builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();

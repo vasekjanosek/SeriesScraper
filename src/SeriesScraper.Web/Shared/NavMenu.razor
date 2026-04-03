@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using SeriesScraper.Domain.Interfaces
+@inject IWatchlistNotificationService NotificationService
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">SeriesScraper.Web</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -25,6 +28,15 @@
             </NavLink>
         </div>
         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="notifications">
+                <span class="oi oi-bell" aria-hidden="true"></span> Notifications
+                @if (_unreadCount > 0)
+                {
+                    <span class="badge bg-danger ms-1">@_unreadCount</span>
+                }
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
             <NavLink class="nav-link" href="runs">
                 <span class="oi oi-timer" aria-hidden="true"></span> Run Progress
             </NavLink>
@@ -44,8 +56,26 @@
 
 @code {
     private bool collapseNavMenu = true;
+    private int _unreadCount;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshUnreadCount();
+    }
+
+    private async Task RefreshUnreadCount()
+    {
+        try
+        {
+            _unreadCount = await NotificationService.GetUnreadCountAsync();
+        }
+        catch
+        {
+            _unreadCount = 0;
+        }
+    }
 
     private void ToggleNavMenu()
     {
