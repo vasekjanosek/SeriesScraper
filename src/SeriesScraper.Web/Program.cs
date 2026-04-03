@@ -64,6 +64,7 @@ try
             settingRepository: sp.GetService<ISettingRepository>()));
 
     // Playwright authenticator for reCAPTCHA v3 protected forums (#89)
+    builder.Services.AddSingleton<IPlaywrightFactory, PlaywrightFactory>();
     builder.Services.AddSingleton<IPlaywrightAuthenticator, PlaywrightAuthenticator>();
 
     // Scoped services

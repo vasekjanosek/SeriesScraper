@@ -11,11 +11,14 @@ namespace SeriesScraper.Infrastructure.Services;
 /// Solves the reCAPTCHA v3 problem: the site's script auto-generates the
 /// g-recaptcha-response token when the form is submitted in a real browser.
 /// After login, session cookies are extracted and returned for use with HttpClient.
-/// The browser is disposed immediately after authentication.
+/// Each call creates a fresh IPlaywright instance — browser is short-lived and never
+/// cached as a singleton field, which avoids thread-safety races.
 /// </summary>
 public sealed class PlaywrightAuthenticator : IPlaywrightAuthenticator
 {
     private readonly ILogger<PlaywrightAuthenticator> _logger;
+    private readonly IPlaywrightFactory _playwrightFactory;
+    private readonly TimeSpan _postLoginWait;
 
     // Selector constants for the phpBB2 login form
     internal const string UsernameSelector = "input[name='username']";
@@ -23,16 +26,30 @@ public sealed class PlaywrightAuthenticator : IPlaywrightAuthenticator
     internal const string SubmitSelector = "input[name='login'], input[type='submit']";
     internal const string SessionCookieName = "warforum_sid";
 
-    // Timeouts
     private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan PostLoginWait = TimeSpan.FromSeconds(5);
 
-    private IPlaywright? _playwright;
     private bool _disposed;
 
-    public PlaywrightAuthenticator(ILogger<PlaywrightAuthenticator> logger)
+    /// <summary>Primary constructor used by the DI container.</summary>
+    public PlaywrightAuthenticator(
+        ILogger<PlaywrightAuthenticator> logger,
+        IPlaywrightFactory playwrightFactory)
+        : this(logger, playwrightFactory, TimeSpan.FromSeconds(5))
+    {
+    }
+
+    /// <summary>
+    /// Constructor that allows injecting a custom post-login wait duration.
+    /// Intended for unit tests to avoid the full 5-second wait.
+    /// </summary>
+    internal PlaywrightAuthenticator(
+        ILogger<PlaywrightAuthenticator> logger,
+        IPlaywrightFactory playwrightFactory,
+        TimeSpan postLoginWait)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _playwrightFactory = playwrightFactory ?? throw new ArgumentNullException(nameof(playwrightFactory));
+        _postLoginWait = postLoginWait;
     }
 
     /// <inheritdoc />
@@ -49,12 +66,12 @@ public sealed class PlaywrightAuthenticator : IPlaywrightAuthenticator
             "Starting Playwright authentication for {LoginUrl} as {Username}",
             loginUrl, credentials.Username);
 
-        _playwright ??= await Playwright.CreateAsync();
-
+        // Create a fresh IPlaywright per call — never cached as a singleton field.
+        var playwright = await _playwrightFactory.CreateAsync();
         IBrowser? browser = null;
         try
         {
-            browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
                 Headless = true
             });
@@ -99,7 +116,7 @@ public sealed class PlaywrightAuthenticator : IPlaywrightAuthenticator
             }
 
             // Brief wait for any async cookie setting
-            await Task.Delay(PostLoginWait, cancellationToken);
+            await Task.Delay(_postLoginWait, cancellationToken);
 
             // Extract cookies
             var playwrightCookies = await context.CookiesAsync();
@@ -155,23 +172,16 @@ public sealed class PlaywrightAuthenticator : IPlaywrightAuthenticator
             {
                 await browser.CloseAsync();
             }
+
+            // Dispose the per-call playwright instance — never cache it
+            playwright.Dispose();
         }
     }
 
     /// <inheritdoc />
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
-            return;
-
         _disposed = true;
-
-        if (_playwright is not null)
-        {
-            _playwright.Dispose();
-            _playwright = null;
-        }
-
-        await ValueTask.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }

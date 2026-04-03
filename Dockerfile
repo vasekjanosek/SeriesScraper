@@ -89,8 +89,11 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Install Playwright Chromium browser for reCAPTCHA v3 authentication (#89)
-# Uses the Playwright CLI from the published app to install browsers
-RUN dotnet Microsoft.Playwright.dll install chromium
+# Set PLAYWRIGHT_BROWSERS_PATH to a world-accessible path BEFORE install so that
+# when the app later runs as appuser it can find the browsers.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN dotnet Microsoft.Playwright.dll install chromium \
+    && chmod -R 755 /ms-playwright
 
 # Create non-root user for security (principle of least privilege)
 RUN addgroup --gid 1001 appgroup \
