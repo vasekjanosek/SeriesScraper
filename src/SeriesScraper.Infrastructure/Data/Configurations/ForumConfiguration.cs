@@ -42,6 +42,11 @@ public class ForumConfiguration : IEntityTypeConfiguration<Forum>
         entity.Property(e => e.IsActive)
             .HasDefaultValue(true);
         
+        entity.Property(e => e.ResponseEncoding)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("utf-8");
+        
         entity.Property(e => e.CreatedAt)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

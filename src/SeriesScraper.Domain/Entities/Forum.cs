@@ -41,6 +41,12 @@ public class Forum
     public int PolitenessDelayMs { get; set; } = 500;
     public bool IsActive { get; set; } = true;
     
+    /// <summary>
+    /// The character encoding used by this forum's HTTP responses (e.g. "utf-8", "windows-1250").
+    /// Used when reading response streams to correctly decode non-UTF-8 content.
+    /// </summary>
+    public string ResponseEncoding { get; set; } = "utf-8";
+    
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     

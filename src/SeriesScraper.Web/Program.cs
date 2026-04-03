@@ -14,6 +14,9 @@ using SeriesScraper.Infrastructure.Services.Imdb;
 using SeriesScraper.Web.BackgroundServices;
 using SeriesScraper.Web.Logging;
 
+// Register CodePages encoding provider for legacy encodings (e.g. Windows-1250 for Czech forums)
+EncodingHelper.RegisterCodePages();
+
 // Set global regex timeout as safety net for ReDoS prevention (#48)
 SafeRegex.SetGlobalTimeout();
 

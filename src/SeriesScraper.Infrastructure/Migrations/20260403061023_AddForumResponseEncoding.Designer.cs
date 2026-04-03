@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SeriesScraper.Infrastructure.Data;
@@ -11,9 +12,11 @@ using SeriesScraper.Infrastructure.Data;
 namespace SeriesScraper.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403061023_AddForumResponseEncoding")]
+    partial class AddForumResponseEncoding
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -173,11 +176,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("credential_key");
-
-                    b.Property<string>("EncryptedPassword")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("encrypted_password");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -1117,14 +1115,9 @@ namespace SeriesScraper.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
-                    b.Property<int?>("ForumId")
+                    b.Property<int>("ForumId")
                         .HasColumnType("integer")
                         .HasColumnName("forum_id");
-
-                    b.Property<string>("ForumName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("forum_name");
 
                     b.Property<int>("ProcessedItems")
                         .ValueGeneratedOnAdd()
@@ -1494,7 +1487,8 @@ namespace SeriesScraper.Infrastructure.Migrations
                     b.HasOne("SeriesScraper.Domain.Entities.Forum", "Forum")
                         .WithMany("ScrapeRuns")
                         .HasForeignKey("ForumId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
                         .HasConstraintName("fk_scrape_runs_forums_forum_id");
 
                     b.Navigation("Forum");
