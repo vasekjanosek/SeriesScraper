@@ -42,6 +42,13 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
             },
             new Setting 
             { 
+                Key = "imdb.refresh_interval", 
+                Value = "weekly", 
+                Description = "IMDB refresh schedule: daily, weekly, monthly, or manual",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
                 Key = "ForumStructureRefreshIntervalHours", 
                 Value = "24", 
                 Description = "Interval between forum structure refreshes (hours)",
