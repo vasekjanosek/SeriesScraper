@@ -76,6 +76,7 @@ try
     // Singleton services
     builder.Services.AddSingleton<ILanguageDetector, LinguaLanguageDetector>();
     builder.Services.AddSingleton<IHtmlForumSectionParser, HtmlForumSectionParser>();
+    builder.Services.AddSingleton<IResponseValidator, PhpBB2ResponseValidator>();
 
     // IMDB matching engine
     builder.Services.AddSingleton<ITitleNormalizer, TitleNormalizer>();
