@@ -21,7 +21,7 @@ WORKDIR /app
 EXPOSE 8080
 
 # Install curl for health checks (health check uses curl -f http://localhost:8080/healthz)
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl icu-libs
 
 ENV ASPNETCORE_URLS=http://+:8080
 ENV DOTNET_RUNNING_IN_CONTAINER=true
@@ -52,8 +52,7 @@ COPY . .
 WORKDIR "/src/src/SeriesScraper.Web"
 RUN dotnet build "SeriesScraper.Web.csproj" \
     --configuration Release \
-    --no-restore \
-    --output /app/build
+    --no-restore
 
 # ─── Publish Image ─────────────────────────────────────────────────────────
 FROM build AS publish

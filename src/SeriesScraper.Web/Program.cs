@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SeriesScraper.Application.Security;
 using SeriesScraper.Application.Services;
@@ -35,10 +36,15 @@ try
             .Enrich.FromLogContext();
     });
 
+    // Database
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
     // Add services to the container.
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
     builder.Services.AddSingleton<WeatherForecastService>();
+    builder.Services.AddHealthChecks();
 
     // Antiforgery for any HTTP POST endpoints (#47)
     builder.Services.AddAntiforgery();
@@ -110,6 +116,13 @@ try
 
     var app = builder.Build();
 
+    // Apply EF Core migrations on startup
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+    }
+
     // Serilog request logging middleware
     app.UseSerilogRequestLogging(options =>
     {
@@ -137,6 +150,7 @@ try
     // Antiforgery middleware for CSRF protection on any non-Blazor POST endpoints (#47)
     app.UseAntiforgery();
 
+    app.MapHealthChecks("/healthz");
     app.MapBlazorHub();
     app.MapFallbackToPage("/_Host");
 
