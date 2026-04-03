@@ -1,22 +1,27 @@
+using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using SeriesScraper.Domain.Entities;
+using SeriesScraper.Domain.Exceptions;
 using SeriesScraper.Domain.Interfaces;
 using SeriesScraper.Domain.ValueObjects;
 using SeriesScraper.Infrastructure.Services;
 
 namespace SeriesScraper.Infrastructure.Tests.Services;
 
-public class ForumPostScraperTests
+public class ForumPostScraperTests : IDisposable
 {
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumScraper _forumScraper;
     private readonly ILinkExtractorService _linkExtractor;
     private readonly IUrlValidator _urlValidator;
+    private readonly IResponseValidator _responseValidator;
     private readonly ILogger<ForumPostScraper> _logger;
     private readonly ForumPostScraper _sut;
+    private readonly MockHttpMessageHandler _httpHandler;
+    private readonly HttpClient _httpClient;
 
     private readonly Forum _testForum = new()
     {
@@ -33,10 +38,18 @@ public class ForumPostScraperTests
         _forumScraper = Substitute.For<IForumScraper>();
         _linkExtractor = Substitute.For<ILinkExtractorService>();
         _urlValidator = Substitute.For<IUrlValidator>();
+        _responseValidator = Substitute.For<IResponseValidator>();
         _logger = Substitute.For<ILogger<ForumPostScraper>>();
 
+        // Default: responses are not expired login pages
+        _responseValidator.IsSessionExpired(Arg.Any<string>()).Returns(false);
+
+        // Mock HttpClient with a test handler that returns normal page content
+        _httpHandler = new MockHttpMessageHandler("<html><body>Normal forum page</body></html>");
+        _httpClient = new HttpClient(_httpHandler);
+
         _sessionManager.GetAuthenticatedClientAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>())
-            .Returns(new HttpClient());
+            .Returns(_httpClient);
 
         // Default: all URLs are safe
         _urlValidator.IsUrlSafe(Arg.Any<string>()).Returns(true);
@@ -46,7 +59,13 @@ public class ForumPostScraperTests
             return true;
         });
 
-        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _logger);
+        _sut = new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, _logger);
+    }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
+        _httpHandler.Dispose();
     }
 
     // --- Constructor Validation ---
@@ -54,35 +73,42 @@ public class ForumPostScraperTests
     [Fact]
     public void Constructor_NullSessionManager_Throws()
     {
-        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _urlValidator, _logger);
+        var act = () => new ForumPostScraper(null!, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("sessionManager");
     }
 
     [Fact]
     public void Constructor_NullForumScraper_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _urlValidator, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, null!, _linkExtractor, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("forumScraper");
     }
 
     [Fact]
     public void Constructor_NullLinkExtractor_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _urlValidator, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, null!, _urlValidator, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("linkExtractor");
     }
 
     [Fact]
     public void Constructor_NullUrlValidator_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!, _logger);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, null!, _responseValidator, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("urlValidator");
+    }
+
+    [Fact]
+    public void Constructor_NullResponseValidator_Throws()
+    {
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, null!, _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("responseValidator");
     }
 
     [Fact]
     public void Constructor_NullLogger_Throws()
     {
-        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, null!);
+        var act = () => new ForumPostScraper(_sessionManager, _forumScraper, _linkExtractor, _urlValidator, _responseValidator, null!);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -366,5 +392,105 @@ public class ForumPostScraperTests
 
         result.Success.Should().BeTrue();
         _urlValidator.Received(1).IsUrlSafe(postUrl, out Arg.Any<string?>());
+    }
+
+    // --- #88: Session expiry detection ---
+
+    [Fact]
+    public async Task ScrapePostAsync_SessionExpired_RefreshesAndRetries()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+
+        // First call returns expired, second call returns valid
+        _responseValidator.IsSessionExpired(Arg.Any<string>())
+            .Returns(true, false);
+
+        // After refresh, return a new HttpClient
+        using var refreshedHandler = new MockHttpMessageHandler("<html><body>Normal page</body></html>");
+        using var refreshedClient = new HttpClient(refreshedHandler);
+
+        _sessionManager.GetAuthenticatedClientAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>())
+            .Returns(_httpClient, refreshedClient);
+
+        _forumScraper.ExtractPostContentAsync(postUrl, Arg.Any<CancellationToken>())
+            .Returns(new List<PostContent>
+            {
+                new() { ThreadUrl = postUrl, PostIndex = 0, HtmlContent = "<p>Content</p>", PlainTextContent = "Content" }
+            });
+        _linkExtractor.ExtractLinksAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Link>());
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeTrue();
+        await _sessionManager.Received(1).RefreshSessionAsync(_testForum, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ScrapePostAsync_SessionExpiredAfterRetry_ThrowsScrapingException()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+
+        // Both calls return expired
+        _responseValidator.IsSessionExpired(Arg.Any<string>()).Returns(true);
+
+        // After refresh, return a new HttpClient (still returns login page)
+        using var refreshedHandler = new MockHttpMessageHandler("<html><form action='login.php'></form></html>");
+        using var refreshedClient = new HttpClient(refreshedHandler);
+
+        _sessionManager.GetAuthenticatedClientAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>())
+            .Returns(_httpClient, refreshedClient);
+
+        var act = () => _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        await act.Should().ThrowAsync<ScrapingException>()
+            .WithMessage("*Session expired*re-authentication failed*");
+        await _sessionManager.Received(1).RefreshSessionAsync(_testForum, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ScrapePostAsync_ValidSession_DoesNotRefresh()
+    {
+        var postUrl = "https://forum.example.com/thread/1";
+
+        _responseValidator.IsSessionExpired(Arg.Any<string>()).Returns(false);
+
+        _forumScraper.ExtractPostContentAsync(postUrl, Arg.Any<CancellationToken>())
+            .Returns(new List<PostContent>
+            {
+                new() { ThreadUrl = postUrl, PostIndex = 0, HtmlContent = "<p>Content</p>", PlainTextContent = "Content" }
+            });
+        _linkExtractor.ExtractLinksAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Link>());
+
+        var result = await _sut.ScrapePostAsync(_testForum, postUrl, 1);
+
+        result.Success.Should().BeTrue();
+        await _sessionManager.DidNotReceive().RefreshSessionAsync(Arg.Any<Forum>(), Arg.Any<CancellationToken>());
+    }
+}
+
+/// <summary>
+/// Test helper: mock HttpMessageHandler that returns a configurable response.
+/// </summary>
+internal sealed class MockHttpMessageHandler : HttpMessageHandler
+{
+    private readonly string _responseContent;
+    private readonly HttpStatusCode _statusCode;
+
+    public MockHttpMessageHandler(string responseContent, HttpStatusCode statusCode = HttpStatusCode.OK)
+    {
+        _responseContent = responseContent;
+        _statusCode = statusCode;
+    }
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = new HttpResponseMessage(_statusCode)
+        {
+            Content = new StringContent(_responseContent)
+        };
+        return Task.FromResult(response);
     }
 }

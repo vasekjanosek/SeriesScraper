@@ -185,6 +185,9 @@ public sealed class ForumSessionManager : IForumSessionManager
             BaseAddress = new Uri(forum.BaseUrl)
         };
 
+        // Dismiss age verification overlay (phpBB2 Warforum one-time 18+ check)
+        await DismissAgeVerificationAsync(client, forum, cancellationToken);
+
         // Dispose old client if it exists
         if (_clients.TryRemove(forum.ForumId, out var oldClient))
         {
@@ -205,6 +208,32 @@ public sealed class ForumSessionManager : IForumSessionManager
         _logger.LogInformation(
             "Session established for forum {ForumId} ({ForumName}), expires at {ExpiresAt}",
             forum.ForumId, forum.Name, sessionState.ExpiresAtUtc);
+    }
+
+    private async Task DismissAgeVerificationAsync(HttpClient client, Forum forum, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var baseUrl = forum.BaseUrl.TrimEnd('/');
+            var ageVerifyUrl = baseUrl + "/?ageVerify=1";
+            _logger.LogDebug(
+                "Dismissing age verification for forum {ForumId} ({ForumName}): {Url}",
+                forum.ForumId, forum.Name, ageVerifyUrl);
+
+            using var response = await client.GetAsync(ageVerifyUrl, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            _logger.LogDebug("Age verification dismissed for forum {ForumId}", forum.ForumId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Age verification failure is non-fatal — log and continue.
+            // The overlay may not be present on all forums or may have already been dismissed.
+            _logger.LogWarning(
+                ex,
+                "Age verification request failed for forum {ForumId} ({ForumName}) — continuing anyway",
+                forum.ForumId, forum.Name);
+        }
     }
 
     private void CleanupForumSession(int forumId)

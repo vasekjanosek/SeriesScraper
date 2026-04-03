@@ -500,4 +500,66 @@ public class ForumSessionManagerTests : IDisposable
         _forumScraper.Received().GetCookieContainer();
         client.Should().NotBeNull();
     }
+
+    // ── Age Verification (#88) ──────────────────────────────────────
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_AttemptsAgeVerificationAfterLogin()
+    {
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Age verification will fail (no real server), but is non-fatal
+        await _sut.GetAuthenticatedClientAsync(forum);
+
+        // Verify that age verification was attempted by checking logger was called
+        // with the age verification debug message
+        _logger.Received().Log(
+            Arg.Any<LogLevel>(),
+            Arg.Any<EventId>(),
+            Arg.Is<object>(o => o.ToString()!.Contains("age verification", StringComparison.OrdinalIgnoreCase)),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedClientAsync_AgeVerificationFailure_DoesNotPreventLogin()
+    {
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Authentication should succeed even though age verification fails (no server)
+        var client = await _sut.GetAuthenticatedClientAsync(forum);
+
+        client.Should().NotBeNull();
+        _sut.IsSessionValid(forum.ForumId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshSessionAsync_AlsoAttemptsAgeVerification()
+    {
+        var forum = CreateForum();
+        _credentialService.ResolveCredential("FORUM_TEST_PASSWORD").Returns("secret");
+        _forumScraper.AuthenticateAsync(Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        await _sut.GetAuthenticatedClientAsync(forum);
+
+        // Clear received calls
+        _logger.ClearReceivedCalls();
+
+        await _sut.RefreshSessionAsync(forum);
+
+        // Age verification attempted again during refresh
+        _logger.Received().Log(
+            Arg.Any<LogLevel>(),
+            Arg.Any<EventId>(),
+            Arg.Is<object>(o => o.ToString()!.Contains("age verification", StringComparison.OrdinalIgnoreCase)),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
 }
