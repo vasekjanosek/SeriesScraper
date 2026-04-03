@@ -1,0 +1,21 @@
+# Ignore local build artifacts so Docker build context stays clean
+# and Windows-generated obj/ files don't overwrite the Linux restore.
+**/bin/
+**/obj/
+
+# Git / IDE
+.git/
+.vs/
+*.user
+.idea/
+
+# Secrets
+.env
+
+# Docker files (not needed inside image)
+docker-compose*.yml
+Dockerfile
+
+# Logs
+*.log
+**/logs/
