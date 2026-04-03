@@ -142,6 +142,15 @@ services:
       # Persistent workspace for incremental builds and caching
       - runner_work:/tmp/runner/work
     
+    healthcheck:
+      # Verify the GitHub Actions Runner.Listener process is running
+      # The runner starts in ~30 seconds after registration completes
+      test: ["CMD-SHELL", "pgrep -f Runner.Listener || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
     depends_on:
       db:
         condition: service_healthy
