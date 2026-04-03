@@ -9,7 +9,13 @@ namespace SeriesScraper.Domain.Entities;
 public class ScrapeRun
 {
     public int RunId { get; set; }
-    public int ForumId { get; set; }
+    public int? ForumId { get; set; }
+    
+    /// <summary>
+    /// Denormalized forum name snapshot. Preserved when a forum is deleted
+    /// so history records remain meaningful.
+    /// </summary>
+    public string? ForumName { get; set; }
     
     /// <summary>
     /// Status enum stored as string via HasConversion&lt;string&gt;().
@@ -27,7 +33,7 @@ public class ScrapeRun
     public int ProcessedItems { get; set; }
     
     // Navigation properties
-    public Forum Forum { get; set; } = null!;
+    public Forum? Forum { get; set; }
     public ICollection<ScrapeRunItem> Items { get; set; } = new List<ScrapeRunItem>();
     public ICollection<Link> Links { get; set; } = new List<Link>();
 }

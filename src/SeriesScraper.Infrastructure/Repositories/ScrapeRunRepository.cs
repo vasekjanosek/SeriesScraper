@@ -131,7 +131,7 @@ public class ScrapeRunRepository : IScrapeRunRepository
         var projected = query.Select(r => new RunHistorySummaryDto
         {
             RunId = r.RunId,
-            ForumName = r.Forum != null ? r.Forum.Name : "Unknown",
+            ForumName = r.Forum != null ? r.Forum.Name : (r.ForumName ?? "Unknown"),
             StartedAt = r.StartedAt,
             CompletedAt = r.CompletedAt,
             Status = r.Status.ToString(),
@@ -159,7 +159,7 @@ public class ScrapeRunRepository : IScrapeRunRepository
             .Select(r => new RunHistorySummaryDto
             {
                 RunId = r.RunId,
-                ForumName = r.Forum != null ? r.Forum.Name : "Unknown",
+                ForumName = r.Forum != null ? r.Forum.Name : (r.ForumName ?? "Unknown"),
                 StartedAt = r.StartedAt,
                 CompletedAt = r.CompletedAt,
                 Status = r.Status.ToString(),
