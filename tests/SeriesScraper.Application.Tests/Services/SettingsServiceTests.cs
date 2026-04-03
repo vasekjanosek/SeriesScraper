@@ -182,7 +182,7 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task GetImdbImportStatusAsync_NoNextScheduled_WhenRefreshIntervalInvalid()
+    public async Task GetImdbImportStatusAsync_DefaultsToWeeklySchedule_WhenIntervalValueIsUnknown()
     {
         var finishedAt = new DateTime(2026, 3, 15, 10, 0, 0, DateTimeKind.Utc);
         var lastRun = new DataSourceImportRun

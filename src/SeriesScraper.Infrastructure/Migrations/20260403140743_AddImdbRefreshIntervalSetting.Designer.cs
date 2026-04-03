@@ -1239,13 +1239,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
-                            Key = "ImdbRefreshIntervalHours",
-                            Description = "Interval between IMDB dataset refreshes (hours)",
-                            LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "24"
-                        },
-                        new
-                        {
                             Key = "imdb.refresh_interval",
                             Description = "IMDB refresh schedule: daily, weekly, monthly, or manual",
                             LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),

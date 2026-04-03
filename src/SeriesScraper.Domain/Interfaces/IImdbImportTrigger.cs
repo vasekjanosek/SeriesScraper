@@ -13,8 +13,8 @@ public interface IImdbImportTrigger
     void TriggerImportNow();
 
     /// <summary>
-    /// Wait for the next trigger signal (used by the background service loop).
-    /// Returns true when a signal is received, false on cancellation.
+    /// Waits until a manual import is triggered.
+    /// Throws OperationCanceledException when cancellation is requested.
     /// </summary>
-    Task<bool> WaitForTriggerAsync(CancellationToken cancellationToken);
+    Task WaitForTriggerAsync(CancellationToken cancellationToken);
 }

@@ -57,10 +57,8 @@ public class ImdbImportBackgroundService : BackgroundService
                 _logger.LogInformation("IMDB refresh set to manual — waiting for trigger");
                 try
                 {
-                    if (await _importTrigger.WaitForTriggerAsync(stoppingToken))
-                    {
-                        await RunImportAsync(stoppingToken);
-                    }
+                    await _importTrigger.WaitForTriggerAsync(stoppingToken);
+                    await RunImportAsync(stoppingToken);
                 }
                 catch (OperationCanceledException)
                 {

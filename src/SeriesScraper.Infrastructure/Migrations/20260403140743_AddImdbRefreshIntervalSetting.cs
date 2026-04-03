@@ -15,6 +15,11 @@ namespace SeriesScraper.Infrastructure.Migrations
                 table: "settings",
                 columns: new[] { "key", "description", "last_modified_at", "value" },
                 values: new object[] { "imdb.refresh_interval", "IMDB refresh schedule: daily, weekly, monthly, or manual", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "weekly" });
+
+            migrationBuilder.DeleteData(
+                table: "settings",
+                keyColumn: "key",
+                keyValue: "ImdbRefreshIntervalHours");
         }
 
         /// <inheritdoc />
@@ -24,6 +29,11 @@ namespace SeriesScraper.Infrastructure.Migrations
                 table: "settings",
                 keyColumn: "key",
                 keyValue: "imdb.refresh_interval");
+
+            migrationBuilder.InsertData(
+                table: "settings",
+                columns: new[] { "key", "description", "last_modified_at", "value" },
+                values: new object[] { "ImdbRefreshIntervalHours", "Interval between IMDB dataset refreshes (hours)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "24" });
         }
     }
 }

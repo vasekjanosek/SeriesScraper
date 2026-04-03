@@ -33,7 +33,7 @@ public class ImdbImportBackgroundServiceTests : IDisposable
         _mockTrigger = Substitute.For<IImdbImportTrigger>();
         // By default, trigger never fires (blocks forever until cancelled)
         _mockTrigger.WaitForTriggerAsync(Arg.Any<CancellationToken>())
-            .Returns(ci => Task.Delay(Timeout.Infinite, ci.Arg<CancellationToken>()).ContinueWith(_ => false));
+            .Returns(ci => Task.Delay(Timeout.Infinite, ci.Arg<CancellationToken>()));
     }
 
     [Fact]

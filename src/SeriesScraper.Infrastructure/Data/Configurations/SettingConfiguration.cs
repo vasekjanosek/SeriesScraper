@@ -35,13 +35,6 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
         entity.HasData(
             new Setting 
             { 
-                Key = "ImdbRefreshIntervalHours", 
-                Value = "24", 
-                Description = "Interval between IMDB dataset refreshes (hours)",
-                LastModifiedAt = seedDate
-            },
-            new Setting 
-            { 
                 Key = "imdb.refresh_interval", 
                 Value = "weekly", 
                 Description = "IMDB refresh schedule: daily, weekly, monthly, or manual",

@@ -6,16 +6,15 @@ namespace SeriesScraper.Infrastructure.Tests.Services.Imdb;
 public class ImdbImportTriggerTests
 {
     [Fact]
-    public async Task WaitForTriggerAsync_ReturnsTrue_WhenTriggered()
+    public async Task WaitForTriggerAsync_Completes_WhenTriggered()
     {
         var trigger = new ImdbImportTrigger();
 
         // Trigger before waiting
         trigger.TriggerImportNow();
 
-        var result = await trigger.WaitForTriggerAsync(CancellationToken.None);
-
-        result.Should().BeTrue();
+        // Task should complete without throwing
+        await trigger.WaitForTriggerAsync(CancellationToken.None);
     }
 
     [Fact]
@@ -31,9 +30,8 @@ public class ImdbImportTriggerTests
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var result = await trigger.WaitForTriggerAsync(cts.Token);
+        await trigger.WaitForTriggerAsync(cts.Token);
 
-        result.Should().BeTrue();
         await waitTask;
     }
 
@@ -74,8 +72,7 @@ public class ImdbImportTriggerTests
         trigger.TriggerImportNow();
 
         // First wait completes immediately
-        var result1 = await trigger.WaitForTriggerAsync(CancellationToken.None);
-        result1.Should().BeTrue();
+        await trigger.WaitForTriggerAsync(CancellationToken.None);
 
         // Second wait should block (no pending signal)
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
@@ -90,12 +87,10 @@ public class ImdbImportTriggerTests
 
         // Cycle 1
         trigger.TriggerImportNow();
-        var result1 = await trigger.WaitForTriggerAsync(CancellationToken.None);
-        result1.Should().BeTrue();
+        await trigger.WaitForTriggerAsync(CancellationToken.None);
 
         // Cycle 2
         trigger.TriggerImportNow();
-        var result2 = await trigger.WaitForTriggerAsync(CancellationToken.None);
-        result2.Should().BeTrue();
+        await trigger.WaitForTriggerAsync(CancellationToken.None);
     }
 }

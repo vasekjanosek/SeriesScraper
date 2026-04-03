@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SeriesScraper.Domain -> C:\GIT\SeriesScraper\src\SeriesScraper.Domain\bin\Debug\net8.0\SeriesScraper.Domain.dll
+  SeriesScraper.Application -> C:\GIT\SeriesScraper\src\SeriesScraper.Application\bin\Debug\net8.0\SeriesScraper.Application.dll
+  SeriesScraper.Domain.Tests -> C:\GIT\SeriesScraper\tests\SeriesScraper.Domain.Tests\bin\Debug\net8.0\SeriesScraper.Domain.Tests.dll
+  SeriesScraper.Application.Tests -> C:\GIT\SeriesScraper\tests\SeriesScraper.Application.Tests\bin\Debug\net8.0\SeriesScraper.Application.Tests.dll
+  SeriesScraper.Infrastructure -> C:\GIT\SeriesScraper\src\SeriesScraper.Infrastructure\bin\Debug\net8.0\SeriesScraper.Infrastructure.dll
+  SeriesScraper.Infrastructure.Tests -> C:\GIT\SeriesScraper\tests\SeriesScraper.Infrastructure.Tests\bin\Debug\net8.0\SeriesScraper.Infrastructure.Tests.dll
+  SeriesScraper.Web -> C:\GIT\SeriesScraper\src\SeriesScraper.Web\bin\Debug\net8.0\SeriesScraper.Web.dll
+  SeriesScraper.Web.Tests -> C:\GIT\SeriesScraper\tests\SeriesScraper.Web.Tests\bin\Debug\net8.0\SeriesScraper.Web.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.85
+
+Workload updates are available. Run `dotnet workload list` for more information.

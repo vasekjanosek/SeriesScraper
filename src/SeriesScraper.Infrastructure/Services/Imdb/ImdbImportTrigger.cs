@@ -27,9 +27,8 @@ public class ImdbImportTrigger : IImdbImportTrigger
         }
     }
 
-    public async Task<bool> WaitForTriggerAsync(CancellationToken cancellationToken)
+    public async Task WaitForTriggerAsync(CancellationToken cancellationToken)
     {
         await _signal.WaitAsync(cancellationToken);
-        return true;
     }
 }
