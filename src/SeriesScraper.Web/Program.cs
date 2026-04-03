@@ -139,6 +139,9 @@ try
     // Forum CRUD (#9)
     builder.Services.AddScoped<IForumCrudService, ForumCrudService>();
 
+    // Dashboard (#102)
+    builder.Services.AddScoped<IDashboardService, DashboardService>();
+
     // DataProtection for credential encryption (#9 AC#7, #97 — persist keys to DB)
     builder.Services.AddDataProtection()
         .SetApplicationName("SeriesScraper")

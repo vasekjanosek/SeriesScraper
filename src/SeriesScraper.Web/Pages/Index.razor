@@ -1,9 +1,231 @@
 ﻿@page "/"
-@inject NavigationManager Navigation
+@using SeriesScraper.Domain.Interfaces
+@inject IDashboardService DashboardService
+@implements IDisposable
+
+<PageTitle>SeriesScraper — Dashboard</PageTitle>
+
+<h3>
+    <span class="oi oi-dashboard" aria-hidden="true"></span> System Status
+    @if (_loading)
+    {
+        <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+    }
+</h3>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_dashboard is not null)
+{
+    <!-- Forum Connectivity -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <span class="oi oi-globe" aria-hidden="true"></span> Forum Connectivity
+        </div>
+        <div class="card-body p-0">
+            @if (_dashboard.Forums.Count == 0)
+            {
+                <div class="p-3 text-center">No forums configured. <a href="settings">Add a forum</a>.</div>
+            }
+            else
+            {
+                <table class="table table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Forum</th>
+                            <th>URL</th>
+                            <th>Status</th>
+                            <th>Last Successful Scrape</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var forum in _dashboard.Forums)
+                        {
+                            <tr>
+                                <td>@forum.Name</td>
+                                <td>@forum.BaseUrl</td>
+                                <td>
+                                    <span class="badge @GetConnectivityBadgeClass(forum.ConnectivityStatus)">
+                                        @forum.ConnectivityStatus
+                                    </span>
+                                </td>
+                                <td>@(forum.LastSuccessfulScrape?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <!-- IMDB Dataset -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <span class="oi oi-data-transfer-download" aria-hidden="true"></span> IMDB Dataset
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Last Import:</strong><br />
+                    @(_dashboard.ImdbDataset.LastImportDate?.ToString("yyyy-MM-dd HH:mm") ?? "Never")
+                </div>
+                <div class="col-md-3">
+                    <strong>Title Count:</strong><br />
+                    @_dashboard.ImdbDataset.TitleCount.ToString("N0")
+                </div>
+                <div class="col-md-3">
+                    <strong>Next Refresh:</strong><br />
+                    @(_dashboard.ImdbDataset.NextScheduledRefresh?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                </div>
+                <div class="col-md-3">
+                    <strong>Status:</strong><br />
+                    @(_dashboard.ImdbDataset.ImportStatus ?? "Idle")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Scrape Runs -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <span class="oi oi-timer" aria-hidden="true"></span> Active Scrape Runs
+        </div>
+        <div class="card-body">
+            @if (_dashboard.ActiveRuns.Count == 0)
+            {
+                <div class="text-center">No active runs.</div>
+            }
+            else
+            {
+                @foreach (var run in _dashboard.ActiveRuns)
+                {
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>
+                                <strong>@run.ForumName</strong>
+                                <span class="badge @GetRunStatusBadgeClass(run.Status) ms-1">@run.Status</span>
+                            </span>
+                            <span>@run.ProcessedItems / @run.TotalItems</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar @GetProgressBarClass(run.ProgressPercent)"
+                                 role="progressbar"
+                                 style="width: @(run.ProgressPercent)%"
+                                 aria-valuenow="@run.ProgressPercent"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                @(run.ProgressPercent)%
+                            </div>
+                        </div>
+                    </div>
+                }
+                <div class="text-end">
+                    <a href="runs" class="btn btn-outline-primary btn-sm">View All Runs</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Watchlist Notifications -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <span class="oi oi-star" aria-hidden="true"></span> Watchlist Notifications
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    @if (_dashboard.Watchlist.UnreadMatchCount > 0)
+                    {
+                        <span class="badge bg-success me-2">@_dashboard.Watchlist.UnreadMatchCount new</span>
+                        <span>unread watchlist matches</span>
+                    }
+                    else
+                    {
+                        <span>No new watchlist matches.</span>
+                    }
+                </div>
+                <div>
+                    <span class="me-3">@_dashboard.Watchlist.TotalWatchlistItems items tracked</span>
+                    <a href="watchlist" class="btn btn-outline-primary btn-sm">View Watchlist</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-    protected override void OnInitialized()
+    private DashboardDto? _dashboard;
+    private bool _loading = true;
+    private string? _error;
+    private Timer? _pollTimer;
+
+    protected override async Task OnInitializedAsync()
     {
-        Navigation.NavigateTo("/results", replace: true);
+        await LoadDashboardAsync();
+        _pollTimer = new Timer(async _ => await PollDashboardAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        try
+        {
+            _loading = true;
+            _dashboard = await DashboardService.GetDashboardAsync();
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task PollDashboardAsync()
+    {
+        try
+        {
+            _dashboard = await DashboardService.GetDashboardAsync();
+            _error = null;
+        }
+        catch
+        {
+            // Silently ignore polling errors — stale data is acceptable
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetConnectivityBadgeClass(ForumConnectivityStatus status) => status switch
+    {
+        ForumConnectivityStatus.Online => "bg-success",
+        ForumConnectivityStatus.Unreachable => "bg-danger",
+        ForumConnectivityStatus.AuthExpired => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private static string GetRunStatusBadgeClass(Domain.Enums.ScrapeRunStatus status) => status switch
+    {
+        Domain.Enums.ScrapeRunStatus.Running => "bg-success",
+        Domain.Enums.ScrapeRunStatus.Pending => "bg-info",
+        Domain.Enums.ScrapeRunStatus.Partial => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private static string GetProgressBarClass(int percent) => percent switch
+    {
+        >= 80 => "bg-success",
+        >= 40 => "",
+        _ => "bg-warning"
+    };
+
+    public void Dispose()
+    {
+        _pollTimer?.Dispose();
     }
 }
