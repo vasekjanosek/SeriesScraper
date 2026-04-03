@@ -105,7 +105,26 @@ public class ForumTests
         forum.CrawlDepth.Should().Be(1);
         forum.PolitenessDelayMs.Should().Be(500);
         forum.IsActive.Should().BeTrue();
+        forum.ResponseEncoding.Should().Be("utf-8");
         forum.Sections.Should().BeEmpty();
         forum.ScrapeRuns.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("windows-1250")]
+    [InlineData("utf-8")]
+    [InlineData("iso-8859-2")]
+    public void ResponseEncoding_CanBeSet(string encoding)
+    {
+        var forum = new Forum
+        {
+            Name = "Test",
+            BaseUrl = "https://example.com",
+            Username = "user",
+            CredentialKey = "FORUM_PASSWORD",
+            ResponseEncoding = encoding
+        };
+
+        forum.ResponseEncoding.Should().Be(encoding);
     }
 }
