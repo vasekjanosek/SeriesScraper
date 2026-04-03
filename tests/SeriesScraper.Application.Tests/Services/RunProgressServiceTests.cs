@@ -39,7 +39,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetActiveRunsAsync_ReturnsMappedDtos_ForActiveRuns()
     {
-        var forum = new Forum { ForumId = 1, Name = "TestForum", BaseUrl = "https://example.com", Username = "user", CredentialKey = "ENV_KEY" };
+        var forum = new Forum { ForumId = 1, Name = "TestForum", BaseUrl = "https://example.com", Username = "user", CredentialKey = "FORUM_ENV_KEY" };
         var runs = new List<ScrapeRun>
         {
             CreateRun(1, 1, ScrapeRunStatus.Running, forum, totalItems: 10, processedItems: 5,
@@ -109,7 +109,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetActiveRunsAsync_MapsItemStatuses_Correctly()
     {
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(1, 1, ScrapeRunStatus.Running, forum, totalItems: 3, processedItems: 1,
             items: new List<ScrapeRunItem>
             {
@@ -145,7 +145,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetRunProgressAsync_ReturnsMappedDto_WhenRunExists()
     {
-        var forum = new Forum { ForumId = 2, Name = "Forum2", BaseUrl = "https://f2.com", Username = "u2", CredentialKey = "K2" };
+        var forum = new Forum { ForumId = 2, Name = "Forum2", BaseUrl = "https://f2.com", Username = "u2", CredentialKey = "FORUM_K2" };
         var run = CreateRun(5, 2, ScrapeRunStatus.Running, forum, totalItems: 4, processedItems: 2,
             items: new List<ScrapeRunItem>());
 
@@ -190,7 +190,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetRunProgressAsync_UsesItemRepository_NotRunItems()
     {
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(3, 1, ScrapeRunStatus.Running, forum, totalItems: 1, processedItems: 0,
             items: new List<ScrapeRunItem>
             {
@@ -219,7 +219,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetRunProgressAsync_NoCurrentItem_WhenNoneProcessing()
     {
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(7, 1, ScrapeRunStatus.Running, forum, totalItems: 2, processedItems: 2,
             items: new List<ScrapeRunItem>());
 
@@ -241,7 +241,7 @@ public class RunProgressServiceTests
     public async Task GetRunProgressAsync_CompletedRun_MapsCorrectly()
     {
         var completedAt = DateTime.UtcNow;
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(8, 1, ScrapeRunStatus.Complete, forum, totalItems: 1, processedItems: 1,
             items: new List<ScrapeRunItem>());
         run.CompletedAt = completedAt;
@@ -265,7 +265,7 @@ public class RunProgressServiceTests
     public async Task GetRunProgressAsync_MapsStartedAt()
     {
         var startedAt = new DateTime(2026, 4, 1, 12, 0, 0, DateTimeKind.Utc);
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(9, 1, ScrapeRunStatus.Pending, forum, totalItems: 0, processedItems: 0,
             items: new List<ScrapeRunItem>());
         run.StartedAt = startedAt;
@@ -281,7 +281,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetRunProgressAsync_EmptyItems_ReturnsZeroCounts()
     {
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(10, 1, ScrapeRunStatus.Pending, forum, totalItems: 0, processedItems: 0,
             items: new List<ScrapeRunItem>());
 
@@ -301,7 +301,7 @@ public class RunProgressServiceTests
     public async Task GetActiveRunsAsync_MapsItemProcessedAt()
     {
         var processedAt = new DateTime(2026, 4, 1, 14, 30, 0, DateTimeKind.Utc);
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(11, 1, ScrapeRunStatus.Running, forum, totalItems: 1, processedItems: 1,
             items: new List<ScrapeRunItem>
             {
@@ -320,7 +320,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetActiveRunsAsync_MapsCompletedAt()
     {
-        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 1, Name = "F", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(12, 1, ScrapeRunStatus.Running, forum, totalItems: 0, processedItems: 0,
             items: new List<ScrapeRunItem>());
         run.CompletedAt = null;
@@ -336,7 +336,7 @@ public class RunProgressServiceTests
     [Fact]
     public async Task GetActiveRunsAsync_MapsForumId()
     {
-        var forum = new Forum { ForumId = 7, Name = "F7", BaseUrl = "https://x.com", Username = "u", CredentialKey = "K" };
+        var forum = new Forum { ForumId = 7, Name = "F7", BaseUrl = "https://x.com", Username = "u", CredentialKey = "FORUM_K" };
         var run = CreateRun(13, 7, ScrapeRunStatus.Pending, forum, totalItems: 0, processedItems: 0,
             items: new List<ScrapeRunItem>());
 

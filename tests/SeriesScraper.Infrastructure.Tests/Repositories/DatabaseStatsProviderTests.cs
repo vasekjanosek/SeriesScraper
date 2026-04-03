@@ -99,7 +99,7 @@ public class DatabaseStatsProviderTests : IAsyncLifetime
                 Name = "StatsTestForum",
                 BaseUrl = "https://stats.example.com",
                 Username = "user",
-                CredentialKey = "KEY",
+                CredentialKey = "FORUM_KEY",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

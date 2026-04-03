@@ -171,4 +171,48 @@ public class ForumCredentialServiceTests : IDisposable
         result.Should().HaveCount(1);
         result[0].ForumName.Should().Be("Empty Forum");
     }
+
+    // ── Attack scenario tests (Issue #51) ──────────────────────────────────
+
+    [Theory]
+    [InlineData("DB_PASSWORD")]
+    [InlineData("GITHUB_TOKEN")]
+    [InlineData("PATH")]
+    [InlineData("HOME")]
+    public void ResolveCredential_AttackScenario_ArbitraryEnvVar_Blocked(string maliciousKey)
+    {
+        var act = () => _sut.ResolveCredential(maliciousKey);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData("DB_PASSWORD")]
+    [InlineData("GITHUB_TOKEN")]
+    [InlineData("PATH")]
+    public void ValidateActiveForumCredentials_InvalidKeyFormat_ThrowsArgumentException(string maliciousKey)
+    {
+        var forums = new List<(string, string, bool)>
+        {
+            ("Malicious Forum", maliciousKey, true),
+        };
+
+        var act = () => _sut.ValidateActiveForumCredentials(forums);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void ValidateActiveForumCredentials_InactiveInvalidKey_DoesNotThrow()
+    {
+        // Inactive forums should be skipped before key validation fires
+        var forums = new List<(string, string, bool)>
+        {
+            ("Inactive Forum", "DB_PASSWORD", false),
+        };
+
+        var act = () => _sut.ValidateActiveForumCredentials(forums);
+
+        act.Should().NotThrow();
+    }
 }

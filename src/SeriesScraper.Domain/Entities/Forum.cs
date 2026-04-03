@@ -1,4 +1,5 @@
 using SeriesScraper.Domain.Enums;
+using SeriesScraper.Domain.ValueObjects;
 
 namespace SeriesScraper.Domain.Entities;
 
@@ -8,6 +9,8 @@ namespace SeriesScraper.Domain.Entities;
 /// </summary>
 public class Forum
 {
+    private string _credentialKey = null!;
+
     public int ForumId { get; set; }
     public required string Name { get; set; }
     public required string BaseUrl { get; set; }
@@ -16,8 +19,17 @@ public class Forum
     /// <summary>
     /// Name of the environment variable containing the forum password.
     /// NEVER contains the actual password (security requirement).
+    /// Validated to match the FORUM_* pattern to prevent arbitrary env var reads (#51).
     /// </summary>
-    public required string CredentialKey { get; set; }
+    public required string CredentialKey
+    {
+        get => _credentialKey;
+        set
+        {
+            _ = new CredentialKey(value);
+            _credentialKey = value;
+        }
+    }
     
     public int CrawlDepth { get; set; } = 1;
     public int PolitenessDelayMs { get; set; } = 500;

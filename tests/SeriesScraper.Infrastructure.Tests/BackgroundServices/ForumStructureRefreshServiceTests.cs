@@ -22,7 +22,7 @@ public class ForumStructureRefreshServiceTests
         Name = name,
         BaseUrl = $"https://forum{id}.example.com",
         Username = "user",
-        CredentialKey = "TEST_PASS",
+        CredentialKey = "FORUM_TEST_PASS",
         IsActive = true,
         CrawlDepth = 1
     };

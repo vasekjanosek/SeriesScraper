@@ -47,7 +47,7 @@ public class ScrapeRunHistoryRepositoryTests : IAsyncLifetime
             Name = name,
             BaseUrl = $"https://{name.ToLowerInvariant()}.example.com",
             Username = "testuser",
-            CredentialKey = "TEST_KEY",
+            CredentialKey = "FORUM_TEST_KEY",
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

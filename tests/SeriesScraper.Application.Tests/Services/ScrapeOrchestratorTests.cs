@@ -466,7 +466,7 @@ public class ScrapeOrchestratorTests
             Name = "SlowForum",
             BaseUrl = "https://slow.example.com",
             Username = "user",
-            CredentialKey = "PASS",
+            CredentialKey = "FORUM_PASS",
             PolitenessDelayMs = 100
         };
 

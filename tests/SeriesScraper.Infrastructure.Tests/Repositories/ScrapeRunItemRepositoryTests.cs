@@ -45,7 +45,7 @@ public class ScrapeRunItemRepositoryTests : IAsyncLifetime
             Name = "TestForum",
             BaseUrl = "https://testforum.example.com",
             Username = "testuser",
-            CredentialKey = "TEST_KEY",
+            CredentialKey = "FORUM_TEST_KEY",
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
