@@ -102,6 +102,48 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
                 Value = "256", 
                 Description = "Memory ceiling for bulk IMDB imports",
                 LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "ImdbImportIntervalHours", 
+                Value = "168", 
+                Description = "Interval between IMDB dataset imports (hours). Default: 168 (7 days)",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "ForumRefreshIntervalHours", 
+                Value = "24", 
+                Description = "Interval between forum structure refreshes (hours)",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "scrape.request_delay", 
+                Value = "2000", 
+                Description = "Delay between scrape requests in milliseconds",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "results.page_size", 
+                Value = "25", 
+                Description = "Number of results displayed per page",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "forum.default_encoding", 
+                Value = "windows-1250", 
+                Description = "Default character encoding for forum pages",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "language.filter", 
+                Value = "all", 
+                Description = "Language filter for results (all = no filter)",
+                LastModifiedAt = seedDate
             }
         );
     }

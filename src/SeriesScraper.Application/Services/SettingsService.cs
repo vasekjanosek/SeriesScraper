@@ -28,6 +28,15 @@ public class SettingsService : ISettingsService
         return await _settingRepository.GetAllAsync(ct);
     }
 
+    public async Task<string> GetSettingValueAsync(string key, string defaultValue, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("Setting key cannot be empty.", nameof(key));
+
+        var value = await _settingRepository.GetValueAsync(key, ct);
+        return value ?? defaultValue;
+    }
+
     public async Task UpdateSettingAsync(string key, string value, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(key))

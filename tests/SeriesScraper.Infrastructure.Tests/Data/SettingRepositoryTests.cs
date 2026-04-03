@@ -63,4 +63,73 @@ public class SettingRepositoryTests
             maxThreads.Should().NotBeNull();
         }
     }
+
+    // ─── Zero-config defaults (#106) ──────────────────────────────
+
+    [Fact]
+    public async Task GetValueAsync_ZeroConfigDefaults_AllNewKeysSeeded()
+    {
+        var (context, repo) = CreateSut();
+        using (context)
+        {
+            (await repo.GetValueAsync("scrape.request_delay")).Should().Be("2000");
+            (await repo.GetValueAsync("results.page_size")).Should().Be("25");
+            (await repo.GetValueAsync("forum.default_encoding")).Should().Be("windows-1250");
+            (await repo.GetValueAsync("language.filter")).Should().Be("all");
+        }
+    }
+
+    [Fact]
+    public async Task GetValueAsync_ImdbImportIntervalHours_IsSeeded()
+    {
+        var (context, repo) = CreateSut();
+        using (context)
+        {
+            var value = await repo.GetValueAsync("ImdbImportIntervalHours");
+            value.Should().Be("168");
+        }
+    }
+
+    [Fact]
+    public async Task GetValueAsync_ForumRefreshIntervalHours_IsSeeded()
+    {
+        var (context, repo) = CreateSut();
+        using (context)
+        {
+            var value = await repo.GetValueAsync("ForumRefreshIntervalHours");
+            value.Should().Be("24");
+        }
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ContainsAllExpectedSettings()
+    {
+        var (context, repo) = CreateSut();
+        using (context)
+        {
+            var all = await repo.GetAllAsync();
+
+            var expectedKeys = new[]
+            {
+                "ImdbRefreshIntervalHours",
+                "ForumStructureRefreshIntervalHours",
+                "MaxConcurrentScrapeThreads",
+                "QualityPruningThreshold",
+                "ResultRetentionDays",
+                "HttpRetryCount",
+                "HttpRetryBackoffMultiplier",
+                "HttpCircuitBreakerThreshold",
+                "HttpTimeoutSeconds",
+                "BulkImportMemoryCeilingMB",
+                "ImdbImportIntervalHours",
+                "ForumRefreshIntervalHours",
+                "scrape.request_delay",
+                "results.page_size",
+                "forum.default_encoding",
+                "language.filter"
+            };
+
+            all.Select(s => s.Key).Should().Contain(expectedKeys);
+        }
+    }
 }
