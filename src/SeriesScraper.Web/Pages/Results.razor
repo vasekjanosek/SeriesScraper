@@ -1,10 +1,60 @@
 @page "/results"
 @using SeriesScraper.Domain.Interfaces
 @inject IResultsService ResultsService
+@inject IScrapeRunService ScrapeRunService
+@inject IForumCrudService ForumCrudService
 
 <PageTitle>Scrape Results</PageTitle>
 
 <h3>Scrape Results</h3>
+
+<!-- Scrape Thread by URL -->
+<div class="card mb-3">
+    <div class="card-body">
+        <h6 class="card-title">Scrape thread by URL</h6>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Forum</label>
+                <select class="form-select form-select-sm" @bind="_selectedForumId">
+                    <option value="0">— Select forum —</option>
+                    @if (_forums is not null)
+                    {
+                        @foreach (var f in _forums)
+                        {
+                            <option value="@f.ForumId">@f.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Thread URL</label>
+                <input type="url" class="form-control form-control-sm" @bind="_threadUrl"
+                       placeholder="http://www.warforum.xyz/viewtopic.php?t=123456" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-success btn-sm w-100" @onclick="ScrapeThreadByUrl"
+                        disabled="@_scrapeSubmitting">
+                    @if (_scrapeSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    else
+                    {
+                        <text>Scrape</text>
+                    }
+                </button>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_scrapeError))
+        {
+            <div class="alert alert-danger mt-2 mb-0 py-1">@_scrapeError</div>
+        }
+        @if (!string.IsNullOrEmpty(_scrapeSuccess))
+        {
+            <div class="alert alert-success mt-2 mb-0 py-1">@_scrapeSuccess</div>
+        }
+    </div>
+</div>
 
 <!-- Filters -->
 <div class="card mb-3">
@@ -251,6 +301,14 @@ else
     private ResultDetailDto? _detail;
     private bool _loading = true;
 
+    // Scrape-by-URL state
+    private IReadOnlyList<ForumDto>? _forums;
+    private int _selectedForumId;
+    private string? _threadUrl;
+    private bool _scrapeSubmitting;
+    private string? _scrapeError;
+    private string? _scrapeSuccess;
+
     // Filter state
     private string? TitleSearch;
     private string? ContentTypeFilter;
@@ -271,7 +329,52 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        _forums = await ForumCrudService.GetAllForumsAsync();
         await LoadResultsAsync();
+    }
+
+    private async Task ScrapeThreadByUrl()
+    {
+        _scrapeError = null;
+        _scrapeSuccess = null;
+
+        if (_selectedForumId <= 0)
+        {
+            _scrapeError = "Please select a forum.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_threadUrl))
+        {
+            _scrapeError = "Please enter a thread URL.";
+            return;
+        }
+
+        _scrapeSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var run = await ScrapeRunService.ScrapeByUrlAsync(_threadUrl, _selectedForumId);
+            _scrapeSuccess = $"Scrape run #{run.RunId} started.";
+            _threadUrl = null;
+
+            // Refresh results after a short delay to show the new run
+            await Task.Delay(500);
+            await LoadResultsAsync();
+        }
+        catch (ArgumentException ex)
+        {
+            _scrapeError = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _scrapeError = ex.Message;
+        }
+        finally
+        {
+            _scrapeSubmitting = false;
+        }
     }
 
     private async Task LoadResultsAsync()

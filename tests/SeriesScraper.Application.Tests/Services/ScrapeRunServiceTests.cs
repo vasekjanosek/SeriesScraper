@@ -15,6 +15,8 @@ public class ScrapeRunServiceTests
     private readonly IScrapeRunRepository _repository;
     private readonly IScrapingJobQueue _jobQueue;
     private readonly IScrapeOrchestrator _orchestrator;
+    private readonly IForumRepository _forumRepository;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ScrapeRunService> _logger;
     private readonly ScrapeRunService _sut;
 
@@ -23,8 +25,10 @@ public class ScrapeRunServiceTests
         _repository = Substitute.For<IScrapeRunRepository>();
         _jobQueue = Substitute.For<IScrapingJobQueue>();
         _orchestrator = Substitute.For<IScrapeOrchestrator>();
+        _forumRepository = Substitute.For<IForumRepository>();
+        _urlValidator = Substitute.For<IUrlValidator>();
         _logger = Substitute.For<ILogger<ScrapeRunService>>();
-        _sut = new ScrapeRunService(_repository, _jobQueue, _orchestrator, _logger);
+        _sut = new ScrapeRunService(_repository, _jobQueue, _orchestrator, _forumRepository, _urlValidator, _logger);
     }
 
     [Fact]
@@ -212,5 +216,140 @@ public class ScrapeRunServiceTests
         await _sut.CancelRunAsync(runId: 999);
 
         _jobQueue.Received(1).CancelRun(999);
+    }
+
+    // --- ScrapeByUrlAsync ---
+
+    private void SetupForumAndValidator(string baseUrl = "http://www.warforum.xyz")
+    {
+        var forum = new Forum
+        {
+            ForumId = 1,
+            Name = "TestForum",
+            BaseUrl = baseUrl,
+            Username = "user",
+            CredentialKey = "FORUM_PASS"
+        };
+        _forumRepository.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(forum);
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(true);
+        _repository.CreateAsync(Arg.Any<ScrapeRun>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                var run = ci.Arg<ScrapeRun>();
+                run.RunId = 50;
+                return run;
+            });
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_ValidUrl_CreatesRunAndEnqueues()
+    {
+        SetupForumAndValidator();
+        var url = "http://www.warforum.xyz/viewtopic.php?t=123456";
+
+        var result = await _sut.ScrapeByUrlAsync(url, forumId: 1);
+
+        result.RunId.Should().Be(50);
+        result.RunType.Should().Be(ScrapeRunType.SingleThread);
+        result.Status.Should().Be(ScrapeRunStatus.Pending);
+        await _jobQueue.Received(1).EnqueueAsync(
+            Arg.Is<ScrapeJob>(j => j.RunId == 50 && j.ForumId == 1
+                && j.PostUrls != null && j.PostUrls.Count == 1 && j.PostUrls[0] == url),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ScrapeByUrlAsync_NullOrEmptyUrl_Throws(string? url)
+    {
+        var act = () => _sut.ScrapeByUrlAsync(url!, forumId: 1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("threadUrl");
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_SsrfBlocked_Throws()
+    {
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                ci[1] = "IP address is in a blocked range.";
+                return false;
+            });
+
+        var act = () => _sut.ScrapeByUrlAsync("http://127.0.0.1/viewtopic.php?t=1", forumId: 1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("threadUrl")
+            .WithMessage("*blocked*");
+    }
+
+    [Theory]
+    [InlineData("http://www.warforum.xyz/index.php")]
+    [InlineData("http://www.warforum.xyz/forum/thread/123")]
+    [InlineData("http://www.warforum.xyz/")]
+    public async Task ScrapeByUrlAsync_NotViewtopicUrl_Throws(string url)
+    {
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(true);
+
+        var act = () => _sut.ScrapeByUrlAsync(url, forumId: 1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("threadUrl")
+            .WithMessage("*viewtopic.php*");
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_ForumNotFound_Throws()
+    {
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(true);
+        _forumRepository.GetByIdAsync(99, Arg.Any<CancellationToken>()).Returns((Forum?)null);
+
+        var act = () => _sut.ScrapeByUrlAsync(
+            "http://www.warforum.xyz/viewtopic.php?t=1", forumId: 99);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Forum 99 not found*");
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_HostMismatch_Throws()
+    {
+        SetupForumAndValidator("http://www.warforum.xyz");
+
+        var act = () => _sut.ScrapeByUrlAsync(
+            "http://www.evilforum.com/viewtopic.php?t=1", forumId: 1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("threadUrl")
+            .WithMessage("*does not match*");
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_InvalidAbsoluteUrl_Throws()
+    {
+        _urlValidator.IsUrlSafe(Arg.Any<string>(), out Arg.Any<string?>()).Returns(true);
+
+        var act = () => _sut.ScrapeByUrlAsync("not-a-url", forumId: 1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("threadUrl");
+    }
+
+    [Fact]
+    public async Task ScrapeByUrlAsync_ViewtopicInSubpath_Accepted()
+    {
+        SetupForumAndValidator("http://www.warforum.xyz");
+        var url = "http://www.warforum.xyz/forum/viewtopic.php?t=999";
+
+        var result = await _sut.ScrapeByUrlAsync(url, forumId: 1);
+
+        result.RunId.Should().Be(50);
+        await _jobQueue.Received(1).EnqueueAsync(
+            Arg.Is<ScrapeJob>(j => j.PostUrls != null && j.PostUrls[0] == url),
+            Arg.Any<CancellationToken>());
     }
 }

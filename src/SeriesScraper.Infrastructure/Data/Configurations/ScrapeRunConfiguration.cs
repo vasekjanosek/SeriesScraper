@@ -20,6 +20,12 @@ public class ScrapeRunConfiguration : IEntityTypeConfiguration<ScrapeRun>
             .IsRequired()
             .HasMaxLength(50);
         
+        entity.Property(e => e.RunType)
+            .HasConversion<string>()
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue(Domain.Enums.ScrapeRunType.Search);
+        
         entity.Property(e => e.StartedAt)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

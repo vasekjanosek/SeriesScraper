@@ -22,6 +22,12 @@ public class ScrapeRun
     /// </summary>
     public ScrapeRunStatus Status { get; set; } = ScrapeRunStatus.Pending;
     
+    /// <summary>
+    /// Discriminates how this run was initiated (search-based or single-thread URL).
+    /// Stored as string via HasConversion&lt;string&gt;().
+    /// </summary>
+    public ScrapeRunType RunType { get; set; } = ScrapeRunType.Search;
+    
     public DateTime StartedAt { get; set; }
     
     /// <summary>

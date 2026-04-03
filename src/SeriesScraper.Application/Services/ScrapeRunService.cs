@@ -15,17 +15,23 @@ public class ScrapeRunService : IScrapeRunService
     private readonly IScrapeRunRepository _repository;
     private readonly IScrapingJobQueue _jobQueue;
     private readonly IScrapeOrchestrator _orchestrator;
+    private readonly IForumRepository _forumRepository;
+    private readonly IUrlValidator _urlValidator;
     private readonly ILogger<ScrapeRunService> _logger;
 
     public ScrapeRunService(
         IScrapeRunRepository repository,
         IScrapingJobQueue jobQueue,
         IScrapeOrchestrator orchestrator,
+        IForumRepository forumRepository,
+        IUrlValidator urlValidator,
         ILogger<ScrapeRunService> logger)
     {
         _repository = repository;
         _jobQueue = jobQueue;
         _orchestrator = orchestrator;
+        _forumRepository = forumRepository;
+        _urlValidator = urlValidator;
         _logger = logger;
     }
 
@@ -54,6 +60,61 @@ public class ScrapeRunService : IScrapeRunService
         };
         await _jobQueue.EnqueueAsync(job, ct);
         _logger.LogInformation("Enqueued scrape run {RunId} for forum {ForumId}", run.RunId, forumId);
+    }
+
+    public async Task<ScrapeRun> ScrapeByUrlAsync(string threadUrl, int forumId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(threadUrl))
+            throw new ArgumentException("Thread URL is required.", nameof(threadUrl));
+
+        // SSRF check via existing IUrlValidator
+        if (!_urlValidator.IsUrlSafe(threadUrl, out var reason))
+            throw new ArgumentException($"URL blocked: {reason}", nameof(threadUrl));
+
+        // Must be a viewtopic.php URL
+        if (!Uri.TryCreate(threadUrl, UriKind.Absolute, out var parsedUri)
+            || !parsedUri.AbsolutePath.Contains("viewtopic.php", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("URL must be a viewtopic.php thread URL.", nameof(threadUrl));
+        }
+
+        // Validate URL matches the forum's base URL
+        var forum = await _forumRepository.GetByIdAsync(forumId, ct)
+            ?? throw new InvalidOperationException($"Forum {forumId} not found.");
+
+        if (!Uri.TryCreate(forum.BaseUrl, UriKind.Absolute, out var baseUri)
+            || !string.Equals(parsedUri.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"URL host '{parsedUri.Host}' does not match forum base URL '{forum.BaseUrl}'.",
+                nameof(threadUrl));
+        }
+
+        // Create a run with SingleThread type
+        var run = new ScrapeRun
+        {
+            ForumId = forumId,
+            Status = ScrapeRunStatus.Pending,
+            RunType = ScrapeRunType.SingleThread,
+            StartedAt = DateTime.UtcNow
+        };
+
+        run = await _repository.CreateAsync(run, ct);
+
+        // Enqueue with the single URL as PostUrls
+        var job = new ScrapeJob
+        {
+            RunId = run.RunId,
+            ForumId = forumId,
+            PostUrls = new[] { threadUrl }
+        };
+
+        await _jobQueue.EnqueueAsync(job, ct);
+        _logger.LogInformation(
+            "Enqueued single-thread scrape run {RunId} for forum {ForumId}, URL: {Url}",
+            run.RunId, forumId, threadUrl);
+
+        return run;
     }
 
     public async Task ProcessJobAsync(ScrapeJob job, CancellationToken ct = default)
