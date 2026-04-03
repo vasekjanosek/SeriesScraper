@@ -26,7 +26,7 @@ public class LinkRepositoryTests
             Name = "Test Forum",
             BaseUrl = "https://forum.example.com",
             Username = "testuser",
-            CredentialKey = "TEST_FORUM_PASSWORD"
+            CredentialKey = "FORUM_TEST_PASSWORD"
         };
         context.Forums.Add(forum);
         await context.SaveChangesAsync();

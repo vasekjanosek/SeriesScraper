@@ -40,7 +40,7 @@ public class ForumRepositoryTests : IAsyncLifetime
         Name = name,
         BaseUrl = $"https://{name.ToLowerInvariant().Replace(" ", "")}.example.com",
         Username = "testuser",
-        CredentialKey = "TEST_CREDENTIAL",
+        CredentialKey = "FORUM_TEST_CREDENTIAL",
         IsActive = isActive,
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow

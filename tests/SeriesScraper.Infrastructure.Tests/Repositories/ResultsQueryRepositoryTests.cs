@@ -74,7 +74,7 @@ public class ResultsQueryRepositoryTests : IAsyncLifetime
             Name = "Test Forum",
             BaseUrl = "https://forum.example.com",
             Username = "testuser",
-            CredentialKey = "TEST_CREDENTIAL",
+            CredentialKey = "FORUM_TEST_CREDENTIAL",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

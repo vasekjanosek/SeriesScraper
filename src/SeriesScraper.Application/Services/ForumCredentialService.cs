@@ -29,7 +29,9 @@ public class ForumCredentialService : IForumCredentialService
             if (!isActive)
                 continue;
 
-            var envValue = Environment.GetEnvironmentVariable(credentialKey);
+            // Validate key format before reading env var (security requirement #51)
+            var key = new CredentialKey(credentialKey);
+            var envValue = Environment.GetEnvironmentVariable(key.Value);
             if (string.IsNullOrEmpty(envValue))
             {
                 missing.Add((forumName, credentialKey));
