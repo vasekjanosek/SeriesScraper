@@ -15,7 +15,12 @@ public class HtmlForumSectionParser : IHtmlForumSectionParser
         doc.LoadHtml(html);
 
         // Try forum-specific patterns in order of specificity
-        var sections = ParsePhpBBSections(doc, baseUrl).ToList();
+        // phpBB2 first (uses class='nav' + viewforum.php; phpBB3 uses class='forumtitle')
+        var sections = ParsePhpBB2Sections(doc, baseUrl).ToList();
+        if (sections.Count > 0)
+            return sections.AsReadOnly();
+
+        sections = ParsePhpBBSections(doc, baseUrl).ToList();
         if (sections.Count > 0)
             return sections.AsReadOnly();
 
@@ -30,6 +35,37 @@ public class HtmlForumSectionParser : IHtmlForumSectionParser
         // Generic fallback
         sections = ParseGenericForumSections(doc, baseUrl).ToList();
         return sections.AsReadOnly();
+    }
+
+    private static IEnumerable<ForumSectionVO> ParsePhpBB2Sections(
+        HtmlDocument doc, string baseUrl)
+    {
+        // phpBB2: <a class='nav' href='viewforum.php?f=324&sid=...'>Forum Name</a>
+        // Breadcrumbs also use class='nav' but link to index.php, so we filter on viewforum.php
+        var navLinks = doc.DocumentNode.SelectNodes(
+            "//a[@class='nav' and contains(@href, 'viewforum.php')]");
+        if (navLinks == null) yield break;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in navLinks)
+        {
+            var href = HtmlEntity.DeEntitize(node.GetAttributeValue("href", ""));
+            var name = HtmlEntity.DeEntitize(node.InnerText).Trim();
+
+            if (string.IsNullOrWhiteSpace(href) || string.IsNullOrWhiteSpace(name))
+                continue;
+
+            var resolvedUrl = ResolveUrl(baseUrl, href);
+            if (!seen.Add(resolvedUrl))
+                continue;
+
+            yield return new ForumSectionVO
+            {
+                Url = resolvedUrl,
+                Name = name,
+                Depth = 1
+            };
+        }
     }
 
     private static IEnumerable<ForumSectionVO> ParsePhpBBSections(
