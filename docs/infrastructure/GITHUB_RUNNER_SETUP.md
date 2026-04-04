@@ -11,13 +11,16 @@ SeriesScraper uses a self-hosted GitHub Actions runner to execute CI/CD workflow
 
 ## Architecture
 
-The runner is deployed as a Docker container within the docker-compose stack:
+The runner is deployed as a Docker container via a separate compose file:
 
+- **Compose File**: `docker-compose.runner.yml` (separate from main stack)
 - **Image**: `myoung34/github-runner:2.320.0` (pinned for reproducibility)
 - **Configuration**: Docker-outside-of-Docker (DooD) with host socket mount
 - **Scope**: Repository-level runner (not organization or enterprise)
 - **Labels**: `self-hosted` (matches `runs-on` in workflow files)
 - **Network**: Connected to `seriescraper-network` for service communication
+
+**Note**: The runner is intentionally separated from `docker-compose.yml` to keep CI/CD infrastructure out of production deployments.
 
 ## Security Model
 
@@ -111,10 +114,14 @@ TESTCONTAINERS_RYUK_DISABLED=false
 
 ```bash
 # Start all services including the runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d
+
+# Or use COMPOSE_FILE environment variable for convenience
+export COMPOSE_FILE=docker-compose.yml:docker-compose.runner.yml
 docker compose up -d
 
 # View runner logs to verify registration
-docker compose logs -f github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f github-runner
 ```
 
 **Expected Output**:
@@ -130,7 +137,7 @@ github-runner  | Runner.Listener started
 3. Verify status: **Idle** (green circle)
 
 **Troubleshooting**: If runner shows **Offline**:
-- Check logs: `docker compose logs github-runner`
+- Check logs: `docker compose -f docker-compose.yml -f docker-compose.runner.yml logs github-runner`
 - Verify `GITHUB_ACCESS_TOKEN` has correct permissions
 - Ensure `GITHUB_REPO_URL` matches your repository URL exactly
 - Token may have expired — regenerate and update `.env`
@@ -155,7 +162,7 @@ The runner container includes a health check that verifies the `Runner.Listener`
 
 ```bash
 # Check health status
-docker compose ps github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml ps github-runner
 
 # Expected output:
 # NAME                  STATUS                    PORTS
@@ -170,7 +177,7 @@ docker compose ps github-runner
 - **Start Period**: 60 seconds (runner registration time)
 
 **Unhealthy Status**: If the runner shows `(unhealthy)`:
-1. Check logs: `docker compose logs github-runner`
+1. Check logs: `docker compose -f docker-compose.yml -f docker-compose.runner.yml logs github-runner`
 2. Common causes:
    - Token expired or invalid
    - Network connectivity issues
@@ -219,10 +226,10 @@ Run the integration tests locally to verify the setup:
 
 ```bash
 # Start the runner
-docker compose up -d github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d github-runner
 
 # Trigger a test workflow or run tests manually inside the runner
-docker compose exec github-runner bash
+docker compose -f docker-compose.yml -f docker-compose.runner.yml exec github-runner bash
 # Inside runner container:
 cd /tmp/runner/work/SeriesScraper/SeriesScraper
 dotnet test --filter Category=Integration
@@ -241,31 +248,31 @@ exit
 
 ```bash
 # Restart just the runner service
-docker compose restart github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml restart github-runner
 
 # Rebuild and restart (after updating environment variables)
-docker compose up -d --build github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d --build github-runner
 ```
 
 ### View Runner Logs
 
 ```bash
 # Live tail
-docker compose logs -f github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f github-runner
 
 # Last 100 lines
-docker compose logs --tail=100 github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs --tail=100 github-runner
 
 # Export logs for debugging
-docker compose logs github-runner > runner-debug.log
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs github-runner > runner-debug.log
 ```
 
 ### Deregister the Runner
 
 ```bash
 # Stop and remove the runner container
-docker compose stop github-runner
-docker compose rm -f github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml stop github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml rm -f github-runner
 
 # Remove the runner from GitHub UI
 # Navigate to: Settings → Actions → Runners → Click '...' → Remove
@@ -280,7 +287,7 @@ docker compose rm -f github-runner
 docker pull myoung34/github-runner:2.320.0
 
 # Recreate the runner with the new image
-docker compose up -d --build github-runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d --build github-runner
 ```
 
 **Warning**: Always test runner updates on a non-main branch before deploying to production.
@@ -292,9 +299,9 @@ docker compose up -d --build github-runner
 **Symptoms**: Runner appears in GitHub but status is Offline (gray circle)
 
 **Causes & Solutions**:
-1. **Token Expired**: Regenerate PAT and update `.env`, then `docker compose restart github-runner`
+1. **Token Expired**: Regenerate PAT and update `.env`, then `docker compose -f docker-compose.yml -f docker-compose.runner.yml restart github-runner`
 2. **Wrong Repository URL**: Verify `GITHUB_REPO_URL` matches exactly (no trailing slash)
-3. **Network Issues**: Check Docker network connectivity: `docker compose exec github-runner ping github.com`
+3. **Network Issues**: Check Docker network connectivity: `docker compose -f docker-compose.yml -f docker-compose.runner.yml exec github-runner ping github.com`
 4. **Rate Limiting**: GitHub API rate limit exceeded — wait 1 hour
 
 ### Workflows Not Running on Self-Hosted Runner
@@ -304,14 +311,14 @@ docker compose up -d --build github-runner
 **Causes & Solutions**:
 1. **Label Mismatch**: Verify workflow has `runs-on: self-hosted` (not `runs-on: ubuntu-latest`)
 2. **Runner Offline**: Check runner status in GitHub Settings → Actions → Runners
-3. **Runner Busy**: Check `docker compose logs github-runner` for active jobs
+3. **Runner Busy**: Check `docker compose -f docker-compose.yml -f docker-compose.runner.yml logs github-runner` for active jobs
 
 ### Tests Fail with "Cannot Connect to Docker Daemon"
 
 **Symptoms**: Testcontainers throws `DockerException: Cannot connect to Docker daemon`
 
 **Causes & Solutions**:
-1. **Socket Not Mounted**: Verify `/var/run/docker.sock:/var/run/docker.sock` in `docker-compose.yml`
+1. **Socket Not Mounted**: Verify `/var/run/docker.sock:/var/run/docker.sock` in `docker-compose.runner.yml`
 2. **Socket Permissions**: On Linux, ensure user is in `docker` group
 3. **Windows/Mac**: Restart Docker Desktop
 
@@ -344,8 +351,8 @@ docker compose up -d --build github-runner
 
 ### After Docker Engine Updates
 
-- [ ] Restart runner: `docker compose restart github-runner`
-- [ ] Verify health check passes: `docker compose ps`
+- [ ] Restart runner: `docker compose -f docker-compose.yml -f docker-compose.runner.yml restart github-runner`
+- [ ] Verify health check passes: `docker compose -f docker-compose.yml -f docker-compose.runner.yml ps`
 - [ ] Run a test workflow to confirm functionality
 
 ### Before Major Changes (e.g., Workflow Modifications)
