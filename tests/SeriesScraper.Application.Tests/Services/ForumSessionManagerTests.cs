@@ -949,5 +949,9 @@ public class ForumSessionManagerTests : IDisposable
                              || o.ToString()!.Contains("Skipping", StringComparison.OrdinalIgnoreCase)),
             Arg.Any<CookieException?>(),
             Arg.Any<Func<object, Exception?, string>>());
+
+        // Assert — all cookies were malformed so auth fell through to IForumScraper
+        await _forumScraper.Received(1).AuthenticateAsync(
+            Arg.Any<ForumCredentials>(), Arg.Any<CancellationToken>());
     }
 }

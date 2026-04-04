@@ -305,6 +305,10 @@ public sealed class ForumSessionManager : IForumSessionManager
             }
         }
 
+        var cookieUri = new Uri(baseUrl);
+        if (container.GetCookies(cookieUri).Count == 0)
+            return null;
+
         return container;
     }
 
