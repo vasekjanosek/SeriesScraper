@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Exceptions;
@@ -13,9 +14,16 @@ namespace SeriesScraper.Infrastructure.Services;
 /// </summary>
 public class ForumPostScraper : IForumPostScraper
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+    private static readonly Regex TitlePattern = new(
+        @"<title[^>]*>([^<]+)</title>",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        RegexTimeout);
+
     private readonly IForumSessionManager _sessionManager;
     private readonly IForumScraper _forumScraper;
     private readonly ILinkExtractorService _linkExtractor;
+    private readonly ILanguageTagParser _languageTagParser;
     private readonly IUrlValidator _urlValidator;
     private readonly IResponseValidator _responseValidator;
     private readonly ILogger<ForumPostScraper> _logger;
@@ -24,6 +32,7 @@ public class ForumPostScraper : IForumPostScraper
         IForumSessionManager sessionManager,
         IForumScraper forumScraper,
         ILinkExtractorService linkExtractor,
+        ILanguageTagParser languageTagParser,
         IUrlValidator urlValidator,
         IResponseValidator responseValidator,
         ILogger<ForumPostScraper> logger)
@@ -31,6 +40,7 @@ public class ForumPostScraper : IForumPostScraper
         _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
         _forumScraper = forumScraper ?? throw new ArgumentNullException(nameof(forumScraper));
         _linkExtractor = linkExtractor ?? throw new ArgumentNullException(nameof(linkExtractor));
+        _languageTagParser = languageTagParser ?? throw new ArgumentNullException(nameof(languageTagParser));
         _urlValidator = urlValidator ?? throw new ArgumentNullException(nameof(urlValidator));
         _responseValidator = responseValidator ?? throw new ArgumentNullException(nameof(responseValidator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -65,6 +75,19 @@ public class ForumPostScraper : IForumPostScraper
                 return PostScrapeResult.Failed(postUrl, "No post content found");
             }
 
+            // Parse language tags from the thread title
+            var threadTitle = ExtractThreadTitle(html);
+            var language = threadTitle is not null
+                ? _languageTagParser.GetLanguageString(threadTitle)
+                : null;
+
+            if (language is not null)
+            {
+                _logger.LogDebug(
+                    "Detected language '{Language}' from thread title '{Title}' at {PostUrl}",
+                    language, threadTitle, postUrl);
+            }
+
             // Extract links from all posts in the thread
             var allLinks = new List<Link>();
 
@@ -75,6 +98,15 @@ public class ForumPostScraper : IForumPostScraper
                 var links = await _linkExtractor.ExtractLinksAsync(
                     post.HtmlContent, runId, postUrl, ct);
                 allLinks.AddRange(links);
+            }
+
+            // Apply detected language to all extracted links
+            if (language is not null)
+            {
+                foreach (var link in allLinks)
+                {
+                    link.Language = language;
+                }
             }
 
             _logger.LogDebug(
@@ -132,5 +164,46 @@ public class ForumPostScraper : IForumPostScraper
         }
 
         return html;
+    }
+
+    /// <summary>
+    /// Extracts the thread title from the HTML page title element.
+    /// phpBB2 titles typically follow: "Forum Name :: View topic - Thread Title"
+    /// </summary>
+    internal static string? ExtractThreadTitle(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return null;
+
+        try
+        {
+            var match = TitlePattern.Match(html);
+            if (!match.Success)
+                return null;
+
+            var fullTitle = match.Groups[1].Value.Trim();
+
+            // phpBB2 pattern: "Forum Name :: View topic - Thread Title"
+            var viewTopicIndex = fullTitle.IndexOf("View topic -", StringComparison.OrdinalIgnoreCase);
+            if (viewTopicIndex >= 0)
+            {
+                var threadTitle = fullTitle[(viewTopicIndex + "View topic -".Length)..].Trim();
+                return string.IsNullOrEmpty(threadTitle) ? null : threadTitle;
+            }
+
+            // Generic fallback: remove "::"-separated prefix (common forum pattern)
+            var lastSeparator = fullTitle.LastIndexOf("::", StringComparison.Ordinal);
+            if (lastSeparator >= 0)
+            {
+                var threadTitle = fullTitle[(lastSeparator + 2)..].Trim();
+                return string.IsNullOrEmpty(threadTitle) ? null : threadTitle;
+            }
+
+            return fullTitle;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return null;
+        }
     }
 }

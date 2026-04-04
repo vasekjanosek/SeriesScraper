@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SeriesScraper.Infrastructure.Data;
@@ -11,9 +12,11 @@ using SeriesScraper.Infrastructure.Data;
 namespace SeriesScraper.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403125409_AddDataProtectionKeys")]
+    partial class AddDataProtectionKeys
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -540,11 +543,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_current");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("language");
 
                     b.Property<int>("LinkTypeId")
                         .HasColumnType("integer")
@@ -1266,10 +1264,10 @@ namespace SeriesScraper.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
-                            Key = "imdb.refresh_interval",
-                            Description = "IMDB refresh schedule: daily, weekly, monthly, or manual",
+                            Key = "ImdbRefreshIntervalHours",
+                            Description = "Interval between IMDB dataset refreshes (hours)",
                             LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "weekly"
+                            Value = "24"
                         },
                         new
                         {
