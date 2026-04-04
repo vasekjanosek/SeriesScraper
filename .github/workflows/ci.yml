@@ -31,6 +31,9 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       # Testcontainers will spin up PostgreSQL in a sibling container
       # Connection string is configured in test projects via Testcontainers
+      # Disable Ryuk resource reaper — not needed in ephemeral CI environments
+      # and causes failures when Docker socket access is restricted
+      TESTCONTAINERS_RYUK_DISABLED: "true"
 
     steps:
       # ─── Checkout ──────────────────────────────────────────────────────────
