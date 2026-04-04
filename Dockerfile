@@ -16,19 +16,38 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 # ─── Base Runtime Image ────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
-# Install curl for health checks (health check uses curl -f http://localhost:8080/healthz)
-RUN apk add --no-cache curl icu-libs
+# Install curl for health checks + Playwright Chromium dependencies (#89)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libwayland-client0 \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV ASPNETCORE_URLS=http://+:8080
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # ─── Build Image ───────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy solution file and all project files for dependency caching
@@ -69,9 +88,16 @@ WORKDIR /app
 # Copy published application from publish stage
 COPY --from=publish /app/publish .
 
+# Install Playwright Chromium browser for reCAPTCHA v3 authentication (#89)
+# Set PLAYWRIGHT_BROWSERS_PATH to a world-accessible path BEFORE install so that
+# when the app later runs as appuser it can find the browsers.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN dotnet Microsoft.Playwright.dll install chromium \
+    && chmod -R 755 /ms-playwright
+
 # Create non-root user for security (principle of least privilege)
-RUN addgroup -g 1001 -S appgroup \
-    && adduser -u 1001 -S appuser -G appgroup \
+RUN addgroup --gid 1001 appgroup \
+    && adduser --uid 1001 --ingroup appgroup --disabled-password --gecos "" appuser \
     && chown -R appuser:appgroup /app
 
 # Create directories for persistent data with correct permissions
