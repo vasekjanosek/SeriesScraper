@@ -343,4 +343,70 @@ public class SettingsServiceTests
         result.RefreshInterval.Should().Be("weekly");
         result.NextScheduledRun.Should().Be(finishedAt.AddHours(168));
     }
+
+    // ─── GetSettingValueAsync (#106) ──────────────────────────────
+
+    [Fact]
+    public async Task GetSettingValueAsync_ReturnsValue_WhenKeyExists()
+    {
+        _settingRepository.GetValueAsync("scrape.request_delay", Arg.Any<CancellationToken>())
+            .Returns("5000");
+
+        var result = await _sut.GetSettingValueAsync("scrape.request_delay", "2000");
+
+        result.Should().Be("5000");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_ReturnsDefault_WhenKeyNotFound()
+    {
+        _settingRepository.GetValueAsync("scrape.request_delay", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        var result = await _sut.GetSettingValueAsync("scrape.request_delay", "2000");
+
+        result.Should().Be("2000");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_ThrowsArgumentException_WhenKeyIsEmpty()
+    {
+        var act = () => _sut.GetSettingValueAsync("", "default");
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("key");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_ThrowsArgumentException_WhenKeyIsWhitespace()
+    {
+        var act = () => _sut.GetSettingValueAsync("   ", "default");
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("key");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_PassesCancellationToken()
+    {
+        var cts = new CancellationTokenSource();
+        _settingRepository.GetValueAsync("key", cts.Token).Returns("val");
+
+        await _sut.GetSettingValueAsync("key", "default", cts.Token);
+
+        await _settingRepository.Received(1).GetValueAsync("key", cts.Token);
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_ReturnsDefault_ForAllNewSettingKeys()
+    {
+        // Verify all new setting keys from #106 return defaults when not in DB
+        _settingRepository.GetValueAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        (await _sut.GetSettingValueAsync("scrape.request_delay", "2000")).Should().Be("2000");
+        (await _sut.GetSettingValueAsync("results.page_size", "25")).Should().Be("25");
+        (await _sut.GetSettingValueAsync("forum.default_encoding", "windows-1250")).Should().Be("windows-1250");
+        (await _sut.GetSettingValueAsync("language.filter", "all")).Should().Be("all");
+    }
 }

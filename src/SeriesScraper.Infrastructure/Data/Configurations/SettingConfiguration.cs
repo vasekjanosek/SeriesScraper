@@ -33,6 +33,8 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         
         entity.HasData(
+            // Legacy key from InitialCreate migration. Not read by any service since ImdbImportBackgroundService
+            // was introduced. Retained to avoid dropping a seeded row from the initial schema.
             new Setting 
             { 
                 Key = "imdb.refresh_interval", 
@@ -101,6 +103,56 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
                 Key = "BulkImportMemoryCeilingMB", 
                 Value = "256", 
                 Description = "Memory ceiling for bulk IMDB imports",
+                LastModifiedAt = seedDate
+            },
+            // PascalCase key used by ForumStructureRefreshService (backward-compat exception to dot-notation convention).
+            new Setting 
+            {
+                Key = "ForumRefreshIntervalHours",
+                Value = "24",
+                Description = "Interval between forum structure refreshes (hours)",
+                LastModifiedAt = seedDate
+            },
+            new Setting
+            {
+                Key = "scrape.request_delay",
+                Value = "2000", 
+                Description = "Delay between scrape requests in milliseconds",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "results.page_size", 
+                Value = "25", 
+                Description = "Number of results displayed per page",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "forum.default_encoding", 
+                Value = "windows-1250", 
+                Description = "Default character encoding for forum pages",
+                LastModifiedAt = seedDate
+            },
+            new Setting 
+            { 
+                Key = "language.filter", 
+                Value = "all", 
+                Description = "Language filter for results (all = no filter)",
+                LastModifiedAt = seedDate
+            },
+            new Setting
+            {
+                Key = "imdb.refresh_interval",
+                Value = "168",
+                Description = "Interval between IMDB dataset refreshes (hours, 168 = 7 days)",
+                LastModifiedAt = seedDate
+            },
+            new Setting
+            {
+                Key = "quality.patterns",
+                Value = "",
+                Description = "Quality token patterns (pre-seeded via quality_patterns table)",
                 LastModifiedAt = seedDate
             }
         );

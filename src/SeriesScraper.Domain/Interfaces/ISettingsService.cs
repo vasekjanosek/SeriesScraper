@@ -5,6 +5,7 @@ namespace SeriesScraper.Domain.Interfaces;
 public interface ISettingsService
 {
     Task<IReadOnlyList<Setting>> GetAllSettingsAsync(CancellationToken ct = default);
+    Task<string> GetSettingValueAsync(string key, string defaultValue, CancellationToken ct = default);
     Task UpdateSettingAsync(string key, string value, CancellationToken ct = default);
     Task<ImdbImportStatusDto> GetImdbImportStatusAsync(CancellationToken ct = default);
     void TriggerImdbImportNow();
