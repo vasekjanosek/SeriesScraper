@@ -7,6 +7,7 @@ public interface ISettingsService
     Task<IReadOnlyList<Setting>> GetAllSettingsAsync(CancellationToken ct = default);
     Task UpdateSettingAsync(string key, string value, CancellationToken ct = default);
     Task<ImdbImportStatusDto> GetImdbImportStatusAsync(CancellationToken ct = default);
+    void TriggerImdbImportNow();
 }
 
 public record ImdbImportStatusDto
@@ -15,4 +16,5 @@ public record ImdbImportStatusDto
     public long RowsImported { get; init; }
     public string? Status { get; init; }
     public DateTime? NextScheduledRun { get; init; }
+    public string? RefreshInterval { get; init; }
 }

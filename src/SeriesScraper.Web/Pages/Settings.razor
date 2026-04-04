@@ -204,6 +204,35 @@ else
                 <h5 class="mb-0">Application Settings</h5>
             </div>
             <div class="card-body">
+                <!-- IMDB Refresh Interval Dropdown (#101) -->
+                <div class="mb-4">
+                    <h6>IMDB Refresh Interval</h6>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <select class="form-select form-select-sm"
+                                    value="@_selectedRefreshInterval"
+                                    @onchange="OnRefreshIntervalChanged">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="manual">Manual only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-primary btn-sm" @onclick="SaveRefreshInterval"
+                                    disabled="@(!_refreshIntervalChanged)">
+                                Save Interval
+                            </button>
+                            <button class="btn btn-outline-success btn-sm ms-2" @onclick="TriggerImportNow"
+                                    disabled="@(_imdbStatus?.Status == "Running")">
+                                Import Now
+                            </button>
+                        </div>
+                    </div>
+                    <small class="text-muted">Controls how often IMDB data is re-imported.</small>
+                </div>
+                <hr />
+
                 @if (_settings is not null && _settings.Count > 0)
                 {
                     <table class="table table-sm">
@@ -274,7 +303,14 @@ else
 
                         <dt class="col-sm-4">Next Scheduled</dt>
                         <dd class="col-sm-8">@(_imdbStatus.NextScheduledRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "—")</dd>
+
+                        <dt class="col-sm-4">Refresh Interval</dt>
+                        <dd class="col-sm-8">@(_imdbStatus.RefreshInterval ?? "—")</dd>
                     </dl>
+                    <button class="btn btn-outline-success btn-sm mt-2" @onclick="TriggerImportNow"
+                            disabled="@(_imdbStatus.Status == "Running")">
+                        Import Now
+                    </button>
                 }
             </div>
         </div>
@@ -400,6 +436,10 @@ else
     private int? _confirmDeleteForumId;
     private bool _showPassword;
 
+    // IMDB refresh interval state (#101)
+    private string _selectedRefreshInterval = "weekly";
+    private bool _refreshIntervalChanged;
+
     // Forum form fields
     private string _formName = "";
     private string _formBaseUrl = "";
@@ -427,6 +467,10 @@ else
             _imdbStatus = await SettingsService.GetImdbImportStatusAsync();
             _appInfo = await AppInfoService.GetAppInfoAsync();
             _dbStats = await AppInfoService.GetDatabaseStatsAsync();
+
+            // Initialize refresh interval dropdown from current status
+            _selectedRefreshInterval = _imdbStatus?.RefreshInterval ?? "weekly";
+            _refreshIntervalChanged = false;
 
             // Load existing session cookie values for each forum
             if (_forums is not null && _settings is not null)
@@ -616,6 +660,50 @@ else
         if (uptime.TotalHours >= 1)
             return $"{(int)uptime.TotalHours}h {uptime.Minutes}m";
         return $"{(int)uptime.TotalMinutes}m {uptime.Seconds}s";
+    }
+
+    // ── IMDB Refresh Interval (#101) ───────────────────────────────
+
+    private void OnRefreshIntervalChanged(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString() ?? "weekly";
+        _refreshIntervalChanged = newValue != (_imdbStatus?.RefreshInterval ?? "weekly");
+        _selectedRefreshInterval = newValue;
+    }
+
+    private async Task SaveRefreshInterval()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            await SettingsService.UpdateSettingAsync("imdb.refresh_interval", _selectedRefreshInterval);
+            _successMessage = $"IMDB refresh interval set to '{_selectedRefreshInterval}'.";
+            _refreshIntervalChanged = false;
+            _imdbStatus = await SettingsService.GetImdbImportStatusAsync();
+            _selectedRefreshInterval = _imdbStatus?.RefreshInterval ?? "weekly";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to save refresh interval: {ex.Message}";
+        }
+    }
+
+    private void TriggerImportNow()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            SettingsService.TriggerImdbImportNow();
+            _successMessage = "IMDB import triggered. Check Info tab for progress.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to trigger import: {ex.Message}";
+        }
     }
 
     // ── Session Cookie Injection (#89) ─────────────────────────────────

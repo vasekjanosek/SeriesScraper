@@ -123,6 +123,10 @@ try
     // Background services
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
     builder.Services.AddHostedService<ForumStructureRefreshService>();
+    builder.Services.AddHostedService<ImdbImportBackgroundService>();
+
+    // IMDB import trigger (singleton — shared between UI and BackgroundService) (#101)
+    builder.Services.AddSingleton<IImdbImportTrigger, ImdbImportTrigger>();
 
     // Security services (#45, #46)
     builder.Services.AddSingleton<ISanitizer, HtmlContentSanitizer>();

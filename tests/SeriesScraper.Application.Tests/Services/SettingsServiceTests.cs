@@ -12,6 +12,7 @@ public class SettingsServiceTests
 {
     private readonly ISettingRepository _settingRepository;
     private readonly IDataSourceImportRunRepository _importRunRepository;
+    private readonly IImdbImportTrigger _importTrigger;
     private readonly ILogger<SettingsService> _logger;
     private readonly SettingsService _sut;
 
@@ -19,11 +20,13 @@ public class SettingsServiceTests
     {
         _settingRepository = Substitute.For<ISettingRepository>();
         _importRunRepository = Substitute.For<IDataSourceImportRunRepository>();
+        _importTrigger = Substitute.For<IImdbImportTrigger>();
         _logger = Substitute.For<ILogger<SettingsService>>();
 
         _sut = new SettingsService(
             _settingRepository,
             _importRunRepository,
+            _importTrigger,
             _logger);
     }
 
@@ -128,7 +131,7 @@ public class SettingsServiceTests
             RowsImported = 50000
         };
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>()).Returns("24");
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>()).Returns("daily");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
@@ -136,6 +139,7 @@ public class SettingsServiceTests
         result.RowsImported.Should().Be(50000);
         result.Status.Should().Be("Complete");
         result.NextScheduledRun.Should().Be(finishedAt.AddHours(24));
+        result.RefreshInterval.Should().Be("daily");
     }
 
     [Fact]
@@ -152,7 +156,7 @@ public class SettingsServiceTests
             RowsImported = 1000
         };
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>()).Returns("24");
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>()).Returns("daily");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
@@ -166,7 +170,7 @@ public class SettingsServiceTests
     {
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>())
             .Returns((DataSourceImportRun?)null);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>()).Returns("24");
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>()).Returns("weekly");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
@@ -174,10 +178,11 @@ public class SettingsServiceTests
         result.RowsImported.Should().Be(0);
         result.Status.Should().BeNull();
         result.NextScheduledRun.Should().BeNull();
+        result.RefreshInterval.Should().Be("weekly");
     }
 
     [Fact]
-    public async Task GetImdbImportStatusAsync_NoNextScheduled_WhenRefreshIntervalInvalid()
+    public async Task GetImdbImportStatusAsync_DefaultsToWeeklySchedule_WhenIntervalValueIsUnknown()
     {
         var finishedAt = new DateTime(2026, 3, 15, 10, 0, 0, DateTimeKind.Utc);
         var lastRun = new DataSourceImportRun
@@ -190,12 +195,13 @@ public class SettingsServiceTests
             RowsImported = 50000
         };
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>())
-            .Returns("invalid");
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>())
+            .Returns("invalid_value");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
-        result.NextScheduledRun.Should().BeNull();
+        // Invalid values default to weekly (168h)
+        result.NextScheduledRun.Should().Be(finishedAt.AddHours(168));
         result.LastImportDate.Should().Be(finishedAt);
     }
 
@@ -213,11 +219,12 @@ public class SettingsServiceTests
             RowsImported = 50000
         };
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>())
-            .Returns((string?)null);
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>())
+            .Returns("manual");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
+        // manual = no scheduled next run
         result.NextScheduledRun.Should().BeNull();
     }
 
@@ -236,7 +243,7 @@ public class SettingsServiceTests
             ErrorMessage = "Connection refused"
         };
         _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
-        _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", Arg.Any<CancellationToken>()).Returns("24");
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>()).Returns("daily");
 
         var result = await _sut.GetImdbImportStatusAsync();
 
@@ -264,5 +271,76 @@ public class SettingsServiceTests
         await _sut.UpdateSettingAsync("key", "value", cts.Token);
 
         await _settingRepository.Received(1).UpdateAsync("key", "value", cts.Token);
+    }
+
+    // ─── TriggerImdbImportNow (#101) ──────────────────────────────
+
+    [Fact]
+    public void TriggerImdbImportNow_CallsTrigger()
+    {
+        _sut.TriggerImdbImportNow();
+
+        _importTrigger.Received(1).TriggerImportNow();
+    }
+
+    // ─── GetImdbImportStatusAsync RefreshInterval field (#101) ─────
+
+    [Fact]
+    public async Task GetImdbImportStatusAsync_ReturnsRefreshInterval_Weekly()
+    {
+        _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>())
+            .Returns((DataSourceImportRun?)null);
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>())
+            .Returns("weekly");
+
+        var result = await _sut.GetImdbImportStatusAsync();
+
+        result.RefreshInterval.Should().Be("weekly");
+    }
+
+    [Fact]
+    public async Task GetImdbImportStatusAsync_ReturnsMonthly_NextScheduled()
+    {
+        var finishedAt = new DateTime(2026, 3, 15, 10, 0, 0, DateTimeKind.Utc);
+        var lastRun = new DataSourceImportRun
+        {
+            ImportRunId = 1,
+            SourceId = 1,
+            StartedAt = finishedAt.AddMinutes(-30),
+            FinishedAt = finishedAt,
+            Status = "Complete",
+            RowsImported = 50000
+        };
+        _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>())
+            .Returns("monthly");
+
+        var result = await _sut.GetImdbImportStatusAsync();
+
+        result.RefreshInterval.Should().Be("monthly");
+        result.NextScheduledRun.Should().Be(finishedAt.AddHours(720));
+    }
+
+    [Fact]
+    public async Task GetImdbImportStatusAsync_DefaultsToWeekly_WhenSettingNull()
+    {
+        var finishedAt = new DateTime(2026, 3, 15, 10, 0, 0, DateTimeKind.Utc);
+        var lastRun = new DataSourceImportRun
+        {
+            ImportRunId = 1,
+            SourceId = 1,
+            StartedAt = finishedAt.AddMinutes(-30),
+            FinishedAt = finishedAt,
+            Status = "Complete",
+            RowsImported = 50000
+        };
+        _importRunRepository.GetLastImportRunAsync(1, Arg.Any<CancellationToken>()).Returns(lastRun);
+        _settingRepository.GetValueAsync("imdb.refresh_interval", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        var result = await _sut.GetImdbImportStatusAsync();
+
+        result.RefreshInterval.Should().Be("weekly");
+        result.NextScheduledRun.Should().Be(finishedAt.AddHours(168));
     }
 }

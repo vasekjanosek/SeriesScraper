@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SeriesScraper.Infrastructure.Data;
@@ -11,9 +12,11 @@ using SeriesScraper.Infrastructure.Data;
 namespace SeriesScraper.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403140743_AddImdbRefreshIntervalSetting")]
+    partial class AddImdbRefreshIntervalSetting
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,31 +24,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FriendlyName")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("friendly_name");
-
-                    b.Property<string>("Xml")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("xml");
-
-                    b.HasKey("Id")
-                        .HasName("pk_data_protection_keys");
-
-                    b.ToTable("data_protection_keys", (string)null);
-                });
 
             modelBuilder.Entity("SeriesScraper.Domain.Entities.ContentType", b =>
                 {
@@ -540,11 +518,6 @@ namespace SeriesScraper.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_current");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("language");
 
                     b.Property<int>("LinkTypeId")
                         .HasColumnType("integer")
