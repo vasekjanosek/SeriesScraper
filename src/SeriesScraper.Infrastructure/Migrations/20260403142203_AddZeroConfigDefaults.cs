@@ -22,6 +22,7 @@ namespace SeriesScraper.Infrastructure.Migrations
                     { "ForumRefreshIntervalHours", "Interval between forum structure refreshes (hours)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "24" },
                     { "imdb.refresh_interval", "Interval between IMDB dataset refreshes (hours, 168 = 7 days)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "168" },
                     { "language.filter", "Language filter for results (all = no filter)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "all" },
+                    { "quality.patterns", "Quality token patterns (pre-seeded via quality_patterns table)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "" },
                     { "results.page_size", "Number of results displayed per page", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "25" },
                     { "scrape.request_delay", "Delay between scrape requests in milliseconds", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "2000" }
                 });
@@ -54,6 +55,11 @@ namespace SeriesScraper.Infrastructure.Migrations
                 table: "settings",
                 keyColumn: "key",
                 keyValue: "results.page_size");
+
+            migrationBuilder.DeleteData(
+                table: "settings",
+                keyColumn: "key",
+                keyValue: "quality.patterns");
 
             migrationBuilder.DeleteData(
                 table: "settings",

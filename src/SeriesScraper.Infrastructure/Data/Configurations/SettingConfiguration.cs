@@ -147,6 +147,13 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
                 Value = "168",
                 Description = "Interval between IMDB dataset refreshes (hours, 168 = 7 days)",
                 LastModifiedAt = seedDate
+            },
+            new Setting
+            {
+                Key = "quality.patterns",
+                Value = "",
+                Description = "Quality token patterns (pre-seeded via quality_patterns table)",
+                LastModifiedAt = seedDate
             }
         );
     }

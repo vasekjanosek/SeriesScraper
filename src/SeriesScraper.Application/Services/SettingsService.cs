@@ -52,7 +52,7 @@ public class SettingsService : ISettingsService
     public async Task<ImdbImportStatusDto> GetImdbImportStatusAsync(CancellationToken ct = default)
     {
         var lastRun = await _importRunRepository.GetLastImportRunAsync(ImdbSourceId, ct);
-        var refreshIntervalStr = await _settingRepository.GetValueAsync("ImdbRefreshIntervalHours", ct);
+        var refreshIntervalStr = await _settingRepository.GetValueAsync("imdb.refresh_interval", ct);
 
         DateTime? nextScheduled = null;
         if (lastRun?.FinishedAt is not null && int.TryParse(refreshIntervalStr, out var hours))
