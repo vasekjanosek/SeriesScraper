@@ -11,6 +11,7 @@ using SeriesScraper.Infrastructure.Repositories;
 using SeriesScraper.Infrastructure.BackgroundServices;
 using SeriesScraper.Infrastructure.Services;
 using SeriesScraper.Infrastructure.Services.Imdb;
+using SeriesScraper.Infrastructure.Services.Scrapers;
 using SeriesScraper.Web.BackgroundServices;
 using SeriesScraper.Web.Logging;
 
@@ -88,6 +89,9 @@ try
     builder.Services.AddSingleton<ILanguageTagParser, LanguageTagParser>();
     builder.Services.AddSingleton<IHtmlForumSectionParser, HtmlForumSectionParser>();
     builder.Services.AddSingleton<IResponseValidator, PhpBB2ResponseValidator>();
+
+    // Forum scraper (phpBB2 concrete implementation)
+    builder.Services.AddScoped<IForumScraper, PhpBB2ForumScraper>();
 
     // IMDB matching engine
     builder.Services.AddSingleton<ITitleNormalizer, TitleNormalizer>();
