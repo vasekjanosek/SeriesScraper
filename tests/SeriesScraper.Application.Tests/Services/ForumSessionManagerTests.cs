@@ -922,10 +922,11 @@ public class ForumSessionManagerTests : IDisposable
     [Fact]
     public async Task GetAuthenticatedClientAsync_InvalidCookieNameWithSpace_LogsWarningAndDoesNotThrow()
     {
-        // Arrange — a cookie name with a space is illegal (CookieException)
+        // Arrange — a cookie name starting with '$' is illegal per RFC 6265 and throws CookieException.
+        // Note: .NET 8 allows spaces in cookie names but still rejects '$'-prefixed names.
         var settingRepo = Substitute.For<ISettingRepository>();
         settingRepo.GetValueAsync("forum.1.session_cookie", Arg.Any<CancellationToken>())
-            .Returns("bad name with space=value");
+            .Returns("$invalid_cookie=value");
 
         using var sut = new ForumSessionManager(
             _forumScraper, _credentialService, _logger,
