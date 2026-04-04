@@ -1,0 +1,119 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# GITHUB ACTIONS RUNNER COMPOSE FILE
+# ═════════════════════════════════════════════════════════════════════════════
+# This file contains the self-hosted GitHub Actions runner service.
+# It is separated from the main docker-compose.yml to avoid including CI/CD
+# infrastructure in end-user deployments.
+#
+# USAGE FOR DEVELOPMENT:
+#   docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d
+#
+# USAGE FOR PRODUCTION (without runner):
+#   docker compose up -d
+#
+# See docs/infrastructure/GITHUB_RUNNER_SETUP.md for setup instructions.
+# ═════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────
+  # Registers with GitHub using a Personal Access Token (PAT) for persistence
+  # across container restarts. Configured for Docker-outside-of-Docker (DooD)
+  # to support Testcontainers in CI workflows.
+  #
+  # SECURITY WARNINGS:
+  # - Socket mount grants root-equivalent access to the host Docker daemon
+  # - Runner can spin up arbitrary containers with full host privileges
+  # - Only use in trusted environments with controlled GitHub access
+  # - Never expose this runner to public repositories
+  #
+  # Testcontainers Configuration:
+  # - DooD: Runner mounts host Docker socket, not nested daemon
+  # - Sibling containers: Testcontainers spins up PostgreSQL as sibling
+  # - TESTCONTAINERS_HOST_OVERRIDE: Allows runner to reach sibling containers
+  # - Ryuk: Resource reaper with Docker socket access for cleanup
+  github-runner:
+    # Pinned to specific version for security and reproducibility
+    # Version 2.320.0 corresponds to GitHub Actions runner v2.320.0
+    # To pin by digest instead, run:
+    #   docker manifest inspect myoung34/github-runner:2.320.0 | grep digest
+    # Update monthly to track GitHub Actions runner releases
+    image: myoung34/github-runner:2.320.0
+    environment:
+      # Repository URL for runner registration
+      REPO_URL: ${GITHUB_REPO_URL}
+      
+      # Personal Access Token (PAT) for runner registration
+      # REQUIRED: Fine-grained PAT with permissions: Actions (read/write)
+      # Unlike one-time RUNNER_TOKEN, this survives container restarts
+      ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN}
+      
+      # Runner display name in GitHub UI
+      RUNNER_NAME: ${RUNNER_NAME:-seriescraper-runner}
+      
+      # Working directory for GitHub Actions workflows
+      RUNNER_WORKDIR: /tmp/runner/work
+      
+      # Runner scope: 'repo' (not 'org' or 'enterprise')
+      RUNNER_SCOPE: repo
+      
+      # Labels for targeting workflows (must match runs-on in ci.yml)
+      LABELS: self-hosted
+      
+      # Testcontainers host override — allows runner container to reach
+      # sibling containers on the Docker host network
+      # Use 'host.docker.internal' (Windows/Mac) or 'host-gateway' (Linux)
+      # Linux Docker 20.10+: host-gateway resolves to host IP automatically
+      TESTCONTAINERS_HOST_OVERRIDE: ${TESTCONTAINERS_HOST_OVERRIDE:-host-gateway}
+      
+      # Ryuk (Testcontainers resource reaper) configuration
+      # Ryuk automatically cleans up orphaned containers after tests complete
+      # Requires Docker socket access (mounted below)
+      # Set to 'true' to disable Ryuk if cleanup is handled manually
+      TESTCONTAINERS_RYUK_DISABLED: ${TESTCONTAINERS_RYUK_DISABLED:-false}
+      
+      # Ryuk container image (override if using private registry)
+      # Default: testcontainers/ryuk:0.6.0
+      # TESTCONTAINERS_RYUK_CONTAINER_IMAGE: ${TESTCONTAINERS_RYUK_IMAGE:-testcontainers/ryuk:0.6.0}
+    
+    volumes:
+      # SECURITY CRITICAL: Docker-outside-of-Docker (DooD) socket mount
+      # Grants runner container access to the host Docker daemon
+      # This is equivalent to root access on the host machine
+      # Required for: Testcontainers, Docker builds in CI, docker compose commands
+      # Alternative: Docker-in-Docker (DinD) with increased overhead and complexity
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+      # Persistent workspace for incremental builds and caching
+      - runner_work:/tmp/runner/work
+    
+    healthcheck:
+      # Verify the GitHub Actions Runner.Listener process is running
+      # The runner starts in ~30 seconds after registration completes
+      test: ["CMD-SHELL", "pgrep -f Runner.Listener || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    restart: unless-stopped
+    
+    networks:
+      - seriescraper-network
+
+# ─── Volumes ────────────────────────────────────────────────────────────────
+volumes:
+  runner_work:
+    driver: local
+    # GitHub Actions workspace for self-hosted runner
+
+# ─── Networks ───────────────────────────────────────────────────────────────
+networks:
+  seriescraper-network:
+    driver: bridge
+    # Note: This network is shared with services in docker-compose.yml
+    # Docker Compose automatically merges networks with the same name

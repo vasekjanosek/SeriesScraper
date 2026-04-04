@@ -11,12 +11,18 @@ namespace SeriesScraper.Application.Services;
 /// Manages authenticated forum sessions with cookie-based persistence.
 /// Thread-safe: uses SemaphoreSlim per forum to serialize authentication
 /// while allowing concurrent reads of established sessions.
+/// Authentication strategy order:
+///   1. Manual cookie injection (setting key "forum.{id}.session_cookie")
+///   2. Playwright headless browser (handles reCAPTCHA v3)
+///   3. IForumScraper.AuthenticateAsync (fallback for forums without reCAPTCHA)
 /// </summary>
 public sealed class ForumSessionManager : IForumSessionManager
 {
     private readonly IForumScraper _forumScraper;
     private readonly IForumCredentialService _credentialService;
     private readonly ILogger<ForumSessionManager> _logger;
+    private readonly IPlaywrightAuthenticator? _playwrightAuthenticator;
+    private readonly ISettingRepository? _settingRepository;
 
     private readonly ConcurrentDictionary<int, SessionState> _sessions = new();
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _locks = new();
@@ -24,6 +30,13 @@ public sealed class ForumSessionManager : IForumSessionManager
 
     private readonly TimeSpan _defaultSessionDuration;
     private bool _disposed;
+
+    /// <summary>
+    /// Setting key prefix for manual session cookie injection.
+    /// Full key format: "forum.{forumId}.session_cookie"
+    /// </summary>
+    internal const string ManualCookieSettingPrefix = "forum.";
+    internal const string ManualCookieSettingSuffix = ".session_cookie";
 
     /// <summary>
     /// Creates a new ForumSessionManager.
@@ -35,16 +48,22 @@ public sealed class ForumSessionManager : IForumSessionManager
     /// Default session duration when no explicit expiry is known.
     /// If null, defaults to 30 minutes.
     /// </param>
+    /// <param name="playwrightAuthenticator">Optional Playwright authenticator for reCAPTCHA-protected forums.</param>
+    /// <param name="settingRepository">Optional setting repository for manual cookie injection.</param>
     public ForumSessionManager(
         IForumScraper forumScraper,
         IForumCredentialService credentialService,
         ILogger<ForumSessionManager> logger,
-        TimeSpan? defaultSessionDuration = null)
+        TimeSpan? defaultSessionDuration = null,
+        IPlaywrightAuthenticator? playwrightAuthenticator = null,
+        ISettingRepository? settingRepository = null)
     {
         _forumScraper = forumScraper ?? throw new ArgumentNullException(nameof(forumScraper));
         _credentialService = credentialService ?? throw new ArgumentNullException(nameof(credentialService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _defaultSessionDuration = defaultSessionDuration ?? TimeSpan.FromMinutes(30);
+        _playwrightAuthenticator = playwrightAuthenticator;
+        _settingRepository = settingRepository;
     }
 
     /// <inheritdoc />
@@ -142,6 +161,19 @@ public sealed class ForumSessionManager : IForumSessionManager
 
     private async Task AuthenticateInternalAsync(Forum forum, CancellationToken cancellationToken)
     {
+        // Strategy 1: Manual cookie injection (operator-provided session cookie)
+        var manualCookie = await TryGetManualCookieAsync(forum.ForumId, forum.BaseUrl, cancellationToken);
+        if (manualCookie is not null)
+        {
+            _logger.LogInformation(
+                "Using manually injected session cookie for forum {ForumId} ({ForumName})",
+                forum.ForumId, forum.Name);
+            EstablishSession(forum, manualCookie);
+            await DismissAgeVerificationAsync(_clients[forum.ForumId], forum, cancellationToken);
+            return;
+        }
+
+        // Resolve credentials (needed for both Playwright and IForumScraper fallback)
         var password = _credentialService.ResolveCredential(forum.CredentialKey);
         if (password is null)
         {
@@ -158,8 +190,35 @@ public sealed class ForumSessionManager : IForumSessionManager
             Password = password
         };
 
+        // Strategy 2: Playwright headless browser (handles reCAPTCHA v3)
+        if (_playwrightAuthenticator is not null)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Attempting Playwright authentication for forum {ForumId} ({ForumName}) as {Username}",
+                    forum.ForumId, forum.Name, forum.Username);
+
+                var loginUrl = forum.BaseUrl.TrimEnd('/') + "/login.php";
+                var cookieContainer = await _playwrightAuthenticator.AuthenticateAsync(
+                    loginUrl, credentials, cancellationToken);
+
+                EstablishSession(forum, cookieContainer);
+                await DismissAgeVerificationAsync(_clients[forum.ForumId], forum, cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Playwright authentication failed for forum {ForumId} ({ForumName}) — falling back to IForumScraper",
+                    forum.ForumId, forum.Name);
+            }
+        }
+
+        // Strategy 3: IForumScraper fallback (direct HTTP login, no reCAPTCHA support)
         _logger.LogInformation(
-            "Authenticating to forum {ForumId} ({ForumName}) as {Username}",
+            "Authenticating to forum {ForumId} ({ForumName}) as {Username} via IForumScraper",
             forum.ForumId, forum.Name, forum.Username);
 
         var success = await _forumScraper.AuthenticateAsync(credentials, cancellationToken);
@@ -172,8 +231,13 @@ public sealed class ForumSessionManager : IForumSessionManager
                 $"Authentication failed for forum '{forum.Name}' with username '{forum.Username}'.");
         }
 
-        // Use the scraper's CookieContainer so auth cookies are shared
-        var cookieContainer = _forumScraper.GetCookieContainer();
+        var scraperCookies = _forumScraper.GetCookieContainer();
+        EstablishSession(forum, scraperCookies);
+        await DismissAgeVerificationAsync(_clients[forum.ForumId], forum, cancellationToken);
+    }
+
+    private void EstablishSession(Forum forum, CookieContainer cookieContainer)
+    {
         var handler = new HttpClientHandler
         {
             CookieContainer = cookieContainer,
@@ -184,9 +248,6 @@ public sealed class ForumSessionManager : IForumSessionManager
         {
             BaseAddress = new Uri(forum.BaseUrl)
         };
-
-        // Dismiss age verification overlay (phpBB2 Warforum one-time 18+ check)
-        await DismissAgeVerificationAsync(client, forum, cancellationToken);
 
         // Dispose old client if it exists
         if (_clients.TryRemove(forum.ForumId, out var oldClient))
@@ -208,6 +269,47 @@ public sealed class ForumSessionManager : IForumSessionManager
         _logger.LogInformation(
             "Session established for forum {ForumId} ({ForumName}), expires at {ExpiresAt}",
             forum.ForumId, forum.Name, sessionState.ExpiresAtUtc);
+    }
+
+    private async Task<CookieContainer?> TryGetManualCookieAsync(int forumId, string baseUrl, CancellationToken cancellationToken)
+    {
+        if (_settingRepository is null)
+            return null;
+
+        var key = $"{ManualCookieSettingPrefix}{forumId}{ManualCookieSettingSuffix}";
+        var cookieValue = await _settingRepository.GetValueAsync(key, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(cookieValue))
+            return null;
+
+        _logger.LogDebug("Found manual session cookie setting for forum {ForumId}", forumId);
+
+        var domain = new Uri(baseUrl).Host;
+        var container = new CookieContainer();
+        // Parse cookie string: "name=value; name2=value2" format
+        foreach (var part in cookieValue.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eqIndex = part.IndexOf('=');
+            if (eqIndex <= 0)
+                continue;
+
+            var name = part[..eqIndex].Trim();
+            var value = part[(eqIndex + 1)..].Trim();
+            try
+            {
+                container.Add(new Cookie(name, value, "/", domain));
+            }
+            catch (CookieException ex)
+            {
+                _logger.LogWarning(ex, "Skipping invalid manual cookie for forum {ForumId}", forumId);
+            }
+        }
+
+        var cookieUri = new Uri(baseUrl);
+        if (container.GetCookies(cookieUri).Count == 0)
+            return null;
+
+        return container;
     }
 
     private async Task DismissAgeVerificationAsync(HttpClient client, Forum forum, CancellationToken cancellationToken)

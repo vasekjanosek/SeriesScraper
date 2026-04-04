@@ -6,11 +6,22 @@ SeriesScraper uses Docker Compose to orchestrate the application stack for local
 
 ## Architecture
 
-The stack consists of three services:
+The stack consists of two core services:
 
 1. **app** - Blazor Server application (.NET 8)
 2. **db** - PostgreSQL 16 database (Alpine-based)
-3. **github-runner** - Self-hosted GitHub Actions runner for CI/CD
+
+For **local development and CI/CD**, an optional third service can be added:
+
+3. **github-runner** - Self-hosted GitHub Actions runner (see `docker-compose.runner.yml`)
+
+## Compose File Structure
+
+- `docker-compose.yml` - Core services (app + db) for production deployment
+- `docker-compose.runner.yml` - GitHub Actions runner for development/CI (optional)
+
+**Production**: Only `docker-compose.yml` is needed
+**Development**: Combine both files to include the CI runner
 
 ## Prerequisites
 
@@ -36,21 +47,37 @@ cp .env.example .env
   # Generate with:
   openssl rand -base64 32
   ```
-- `GITHUB_ACCESS_TOKEN` - From GitHub Settings → Actions → Runners → New runner
+- `GITHUB_ACCESS_TOKEN` - From GitHub Settings → Actions → Runners → New runner (only if using runner)
 - `FORUM_USERNAME` and `FORUM_PASSWORD` - Your forum credentials
 - `APP_ENV` - Set to `Development` for local dev, keep `Production` for deployment
 
 ### 2. Start Services
 
+**For production (app + database only)**:
 ```bash
-# Start all services in detached mode
 docker compose up -d
 
 # View logs
 docker compose logs -f
+```
+
+**For development with CI runner**:
+```bash
+# Start all services including GitHub Actions runner
+docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d
+
+# View logs
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f
 
 # View logs for specific service
-docker compose logs -f app
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f app
+```
+
+**Note**: You can set `COMPOSE_FILE` environment variable to avoid repeating `-f` flags:
+```bash
+export COMPOSE_FILE=docker-compose.yml:docker-compose.runner.yml
+docker compose up -d
+docker compose logs -f
 ```
 
 ### 3. Verify Health
@@ -94,7 +121,9 @@ curl http://localhost:8080/healthz
 - **Volume**: `postgres_data` (5-15 GB depending on IMDB dataset)
 - **Security**: Loopback binding prevents network exposure
 
-### GitHub Actions Runner
+### GitHub Actions Runner (Optional - Development/CI Only)
+
+**Location**: `docker-compose.runner.yml` (separate file)
 
 - **Image**: `myoung34/github-runner:2.320.0` (pinned version for security)
 - **Purpose**: Runs CI/CD workflows locally on self-hosted infrastructure
@@ -109,7 +138,7 @@ curl http://localhost:8080/healthz
 **Quick Setup**:
 1. Generate GitHub fine-grained PAT with Actions (RW) + Administration (RW) permissions
 2. Add to `.env`: `GITHUB_ACCESS_TOKEN=ghp_your_token_here`
-3. Start runner: `docker compose up -d github-runner`
+3. Start runner: `docker compose -f docker-compose.yml -f docker-compose.runner.yml up -d github-runner`
 4. Verify in GitHub: Settings → Actions → Runners → `seriescraper-runner` should show **Idle** status
 
 ## Disk Usage
@@ -169,8 +198,11 @@ If deploying beyond localhost (NOT RECOMMENDED):
 ### Stopping Services
 
 ```bash
-# Stop all services
+# Stop all services (production mode)
 docker compose down
+
+# Stop all services including runner (development mode)
+docker compose -f docker-compose.yml -f docker-compose.runner.yml down
 
 # Stop and remove volumes (CAUTION: deletes all data)
 docker compose down -v
@@ -184,19 +216,28 @@ docker compose restart app
 
 # Rebuild and restart app after code changes
 docker compose up -d --build app
+
+# Restart runner (if using development setup)
+docker compose -f docker-compose.yml -f docker-compose.runner.yml restart github-runner
 ```
 
 ### Viewing Logs
 
 ```bash
-# All services
+# All services (production)
 docker compose logs -f
+
+# All services including runner (development)
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f
 
 # Specific service
 docker compose logs -f db
 
 # Last 100 lines
 docker compose logs --tail=100 app
+
+# Runner logs (development)
+docker compose -f docker-compose.yml -f docker-compose.runner.yml logs -f github-runner
 ```
 
 ### Database Access
@@ -267,8 +308,8 @@ docker compose exec app curl -f http://localhost:8080/healthz
 2. Regenerate token if expired: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
 3. Ensure token has permissions: Actions (RW), Administration (RW)
 4. Update `.env` with new token
-5. Restart runner: `docker compose restart github-runner`
-6. Check runner logs: `docker compose logs github-runner`
+5. Restart runner: `docker compose -f docker-compose.yml -f docker-compose.runner.yml restart github-runner`
+6. Check runner logs: `docker compose -f docker-compose.yml -f docker-compose.runner.yml logs github-runner`
 7. Verify runner appears in GitHub: Settings → Actions → Runners
 
 For detailed troubleshooting, see [GITHUB_RUNNER_SETUP.md](GITHUB_RUNNER_SETUP.md).

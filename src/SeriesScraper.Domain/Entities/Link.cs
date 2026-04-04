@@ -33,6 +33,13 @@ public class Link
     /// </summary>
     public bool IsCurrent { get; set; } = true;
     
+    /// <summary>
+    /// ISO 639-1 language code(s) parsed from the thread title.
+    /// Comma-separated when multiple languages are present (e.g. "cs,en").
+    /// Null if no language tag was detected.
+    /// </summary>
+    public string? Language { get; set; }
+    
     public int RunId { get; set; }
     
     // Navigation properties

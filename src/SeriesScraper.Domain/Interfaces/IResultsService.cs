@@ -61,6 +61,7 @@ public record LinkDto
     public int? ParsedSeason { get; init; }
     public int? ParsedEpisode { get; init; }
     public bool IsCurrent { get; init; }
+    public string? Language { get; init; }
 }
 
 public record ResultFilterDto

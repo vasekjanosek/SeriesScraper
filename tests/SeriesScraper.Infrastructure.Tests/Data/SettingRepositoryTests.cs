@@ -56,7 +56,7 @@ public class SettingRepositoryTests
         var (context, repo) = CreateSut();
         using (context)
         {
-            var imdb = await repo.GetValueAsync("ImdbRefreshIntervalHours");
+            var imdb = await repo.GetValueAsync("imdb.refresh_interval");
             imdb.Should().NotBeNull();
 
             var maxThreads = await repo.GetValueAsync("MaxConcurrentScrapeThreads");

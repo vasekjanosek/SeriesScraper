@@ -55,7 +55,17 @@ try
     builder.Services.AddSingleton<IScrapingJobQueue, ScrapingJobQueue>();
 
     // Session management (scoped — one session manager per scope/circuit)
-    builder.Services.AddScoped<IForumSessionManager, ForumSessionManager>();
+    builder.Services.AddScoped<IForumSessionManager>(sp =>
+        new ForumSessionManager(
+            sp.GetRequiredService<IForumScraper>(),
+            sp.GetRequiredService<IForumCredentialService>(),
+            sp.GetRequiredService<ILogger<ForumSessionManager>>(),
+            playwrightAuthenticator: sp.GetService<IPlaywrightAuthenticator>(),
+            settingRepository: sp.GetService<ISettingRepository>()));
+
+    // Playwright authenticator for reCAPTCHA v3 protected forums (#89)
+    builder.Services.AddSingleton<IPlaywrightFactory, PlaywrightFactory>();
+    builder.Services.AddSingleton<IPlaywrightAuthenticator, PlaywrightAuthenticator>();
 
     // Scoped services
     builder.Services.AddScoped<IScrapeRunService, ScrapeRunService>();
@@ -75,6 +85,7 @@ try
 
     // Singleton services
     builder.Services.AddSingleton<ILanguageDetector, LinguaLanguageDetector>();
+    builder.Services.AddSingleton<ILanguageTagParser, LanguageTagParser>();
     builder.Services.AddSingleton<IHtmlForumSectionParser, HtmlForumSectionParser>();
     builder.Services.AddSingleton<IResponseValidator, PhpBB2ResponseValidator>();
 
@@ -112,6 +123,10 @@ try
     // Background services
     builder.Services.AddHostedService<ScrapeRunBackgroundService>();
     builder.Services.AddHostedService<ForumStructureRefreshService>();
+    builder.Services.AddHostedService<ImdbImportBackgroundService>();
+
+    // IMDB import trigger (singleton — shared between UI and BackgroundService) (#101)
+    builder.Services.AddSingleton<IImdbImportTrigger, ImdbImportTrigger>();
 
     // Security services (#45, #46)
     builder.Services.AddSingleton<ISanitizer, HtmlContentSanitizer>();
@@ -120,9 +135,10 @@ try
     // Forum CRUD (#9)
     builder.Services.AddScoped<IForumCrudService, ForumCrudService>();
 
-    // DataProtection for credential encryption (#9 AC#7)
+    // DataProtection for credential encryption (#9 AC#7, #97 — persist keys to DB)
     builder.Services.AddDataProtection()
-        .SetApplicationName("SeriesScraper");
+        .SetApplicationName("SeriesScraper")
+        .PersistKeysToDbContext<AppDbContext>();
     builder.Services.AddSingleton<ICredentialProtector, CredentialProtector>();
 
     var app = builder.Build();

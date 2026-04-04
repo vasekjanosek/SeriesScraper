@@ -43,6 +43,7 @@ public class AppDbContextTests
         Assert.NotNull(context.LinkTypes);
         Assert.NotNull(context.Links);
         Assert.NotNull(context.Settings);
+        Assert.NotNull(context.DataProtectionKeys);
     }
 
     [Fact]
