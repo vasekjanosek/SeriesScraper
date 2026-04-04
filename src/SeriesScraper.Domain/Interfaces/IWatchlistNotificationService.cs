@@ -17,6 +17,8 @@ public record WatchlistNotificationDto
     public required string WatchlistTitle { get; init; }
     public int LinkId { get; init; }
     public required string LinkUrl { get; init; }
+    public string? Language { get; init; }
+    public string? Quality { get; init; }
     public DateTime CreatedAt { get; init; }
     public bool IsRead { get; init; }
 }

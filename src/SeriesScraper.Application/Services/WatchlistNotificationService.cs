@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SeriesScraper.Application.Utilities;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Interfaces;
 
@@ -39,16 +40,10 @@ public class WatchlistNotificationService : IWatchlistNotificationService
             return;
         }
 
-        // Build a lookup from MediaTitleId to watchlist items that want notifications
+        // Build a lookup from CustomTitle (normalized) to watchlist items that want notifications
         var watchlistByTitle = watchlistItems
             .Where(w => w.MediaTitleId.HasValue && w.NotificationPreference != Domain.Enums.NotificationPreference.None)
             .GroupBy(w => w.CustomTitle.ToUpperInvariant())
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        // Also index by MediaTitleId for more precise matching
-        var watchlistByMediaId = watchlistItems
-            .Where(w => w.MediaTitleId.HasValue && w.NotificationPreference != Domain.Enums.NotificationPreference.None)
-            .GroupBy(w => w.MediaTitleId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Custom title watchlist items (no MediaTitleId) — match by title substring in PostUrl
@@ -61,7 +56,7 @@ public class WatchlistNotificationService : IWatchlistNotificationService
         foreach (var link in runLinks)
         {
             // Try matching via post URL title extraction
-            var extractedTitle = ScrapeOrchestrator.ExtractTitleFromUrl(link.PostUrl);
+            var extractedTitle = UrlTitleExtractor.ExtractFrom(link.PostUrl);
             if (extractedTitle is null)
                 continue;
 
@@ -157,6 +152,8 @@ public class WatchlistNotificationService : IWatchlistNotificationService
         WatchlistTitle = n.WatchlistItem?.CustomTitle ?? "Unknown",
         LinkId = n.LinkId,
         LinkUrl = n.Link?.Url ?? "",
+        Language = n.Link?.Language,
+        Quality = n.Link?.Quality,
         CreatedAt = n.CreatedAt,
         IsRead = n.IsRead
     };

@@ -19,6 +19,7 @@ public class DashboardServiceTests
     private readonly IWatchlistService _watchlistService;
     private readonly IDatabaseStatsProvider _statsProvider;
     private readonly IImdbImportTrigger _importTrigger;
+    private readonly IWatchlistNotificationRepository _notificationRepository;
     private readonly ILogger<DashboardService> _logger;
     private readonly DashboardService _sut;
 
@@ -31,6 +32,7 @@ public class DashboardServiceTests
         _watchlistService = Substitute.For<IWatchlistService>();
         _statsProvider = Substitute.For<IDatabaseStatsProvider>();
         _importTrigger = Substitute.For<IImdbImportTrigger>();
+        _notificationRepository = Substitute.For<IWatchlistNotificationRepository>();
         _logger = Substitute.For<ILogger<DashboardService>>();
         _sut = new DashboardService(
             _forumRepository,
@@ -40,6 +42,7 @@ public class DashboardServiceTests
             _watchlistService,
             _statsProvider,
             _importTrigger,
+            _notificationRepository,
             _logger);
     }
 

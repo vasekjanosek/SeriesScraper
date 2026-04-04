@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using SeriesScraper.Application.Services;
+using SeriesScraper.Application.Utilities;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
@@ -533,7 +534,7 @@ public class ScrapeOrchestratorTests
     [InlineData("not-a-uri", null)]
     public void ExtractTitleFromUrl_VariousInputs_ReturnsExpected(string url, string? expected)
     {
-        var result = ScrapeOrchestrator.ExtractTitleFromUrl(url);
+        var result = UrlTitleExtractor.ExtractFrom(url);
         result.Should().Be(expected);
     }
 

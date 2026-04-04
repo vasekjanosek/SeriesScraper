@@ -145,6 +145,10 @@
     <div class="card mb-3">
         <div class="card-header">
             <span class="oi oi-star" aria-hidden="true"></span> Watchlist Notifications
+            @if (_dashboard.UnreadNotificationCount > 0)
+            {
+                <span class="badge bg-danger ms-2">@_dashboard.UnreadNotificationCount unread</span>
+            }
         </div>
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
@@ -162,6 +166,7 @@
                 <div>
                     <span class="me-3">@_dashboard.Watchlist.TotalWatchlistItems items tracked</span>
                     <a href="watchlist" class="btn btn-outline-primary btn-sm">View Watchlist</a>
+                    <a href="notifications" class="btn btn-outline-secondary btn-sm ms-1">Notifications</a>
                 </div>
             </div>
         </div>

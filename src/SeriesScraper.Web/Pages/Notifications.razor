@@ -33,6 +33,8 @@ else
             <thead class="table-dark">
                 <tr>
                     <th>Title</th>
+                    <th>Language</th>
+                    <th>Quality</th>
                     <th>Link</th>
                     <th>Found At</th>
                     <th>Status</th>
@@ -44,6 +46,8 @@ else
                 {
                     <tr class="@(n.IsRead ? "text-muted" : "fw-bold")">
                         <td>@n.WatchlistTitle</td>
+                        <td>@(n.Language ?? "—")</td>
+                        <td>@(n.Quality ?? "—")</td>
                         <td>
                             <a href="@n.LinkUrl" target="_blank" rel="noopener noreferrer" class="text-truncate d-inline-block" style="max-width: 400px;">
                                 @n.LinkUrl

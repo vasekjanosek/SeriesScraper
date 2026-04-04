@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SeriesScraper.Application.Utilities;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
@@ -208,7 +209,7 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         try
         {
             // Extract a potential title from the post URL path
-            var title = ExtractTitleFromUrl(postUrl);
+            var title = UrlTitleExtractor.ExtractFrom(postUrl);
             if (!string.IsNullOrWhiteSpace(title))
             {
                 var match = await _matchingService.FindBestMatchAsync(title, cancellationToken: ct);
@@ -226,25 +227,5 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         }
     }
 
-    internal static string? ExtractTitleFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            var lastSegment = uri.Segments.LastOrDefault()?.Trim('/');
-            if (string.IsNullOrWhiteSpace(lastSegment))
-                return null;
-
-            // Replace common URL separators with spaces
-            return lastSegment
-                .Replace('-', ' ')
-                .Replace('_', ' ')
-                .Replace('.', ' ')
-                .Trim();
-        }
-        catch
-        {
-            return null;
-        }
-    }
 }
+
