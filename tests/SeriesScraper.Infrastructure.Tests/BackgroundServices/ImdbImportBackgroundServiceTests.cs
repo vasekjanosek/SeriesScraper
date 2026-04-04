@@ -175,33 +175,7 @@ public class ImdbImportBackgroundServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetRefreshIntervalAsync_ReturnsManualNull_WhenManualSetting()
-    {
-        using (var seedContext = CreateContext())
-        {
-            seedContext.Settings.Add(new Setting
-            {
-                Key = "imdb.refresh_interval",
-                Value = "manual",
-                LastModifiedAt = DateTime.UtcNow
-            });
-            await seedContext.SaveChangesAsync();
-        }
-
-        _mockImportService.RunImportAsync(Arg.Any<CancellationToken>())
-            .Returns(1);
-
-        var service = CreateService();
-        using var cts = new CancellationTokenSource();
-
-        await service.StartAsync(cts.Token);
-        await Task.Delay(300);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task GetRefreshIntervalAsync_ReturnsMonthly_WhenMonthlySetting()
+    public async Task GetRefreshIntervalAsync_ReturnsMonthlyTimeSpan_WhenMonthlySetting()
     {
         using (var seedContext = CreateContext())
         {
@@ -214,16 +188,11 @@ public class ImdbImportBackgroundServiceTests : IDisposable
             await seedContext.SaveChangesAsync();
         }
 
-        _mockImportService.RunImportAsync(Arg.Any<CancellationToken>())
-            .Returns(1);
-
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
+        var result = await service.GetRefreshIntervalAsync(CancellationToken.None);
 
-        await service.StartAsync(cts.Token);
-        await Task.Delay(300);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        result.Should().NotBeNull();
+        result!.Value.TotalHours.Should().Be(720);
     }
 
     public void Dispose()
