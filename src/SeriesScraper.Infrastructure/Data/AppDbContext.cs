@@ -41,6 +41,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<ImdbTitleEpisodeStaging> ImdbTitleEpisodeStaging => Set<ImdbTitleEpisodeStaging>();
     public DbSet<ImdbTitleRatingsStaging> ImdbTitleRatingsStaging => Set<ImdbTitleRatingsStaging>();
     public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
+    public DbSet<WatchlistNotification> WatchlistNotifications => Set<WatchlistNotification>();
     
     // DataProtection key storage (IDataProtectionKeyContext)
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SeriesScraper.Application.Utilities;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
@@ -20,6 +21,7 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
     private readonly IScrapeRunRepository _runRepository;
     private readonly ILinkRepository _linkRepository;
     private readonly IImdbMatchingService _matchingService;
+    private readonly IWatchlistNotificationService _notificationService;
     private readonly ILogger<ScrapeOrchestrator> _logger;
 
     public ScrapeOrchestrator(
@@ -29,6 +31,7 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         IScrapeRunRepository runRepository,
         ILinkRepository linkRepository,
         IImdbMatchingService matchingService,
+        IWatchlistNotificationService notificationService,
         ILogger<ScrapeOrchestrator> logger)
     {
         _postScraper = postScraper ?? throw new ArgumentNullException(nameof(postScraper));
@@ -37,6 +40,7 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         _runRepository = runRepository ?? throw new ArgumentNullException(nameof(runRepository));
         _linkRepository = linkRepository ?? throw new ArgumentNullException(nameof(linkRepository));
         _matchingService = matchingService ?? throw new ArgumentNullException(nameof(matchingService));
+        _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -149,6 +153,16 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         _logger.LogInformation(
             "Run {RunId} processing complete: {Succeeded} succeeded, {Failed} failed out of {Total}",
             job.RunId, succeeded, failed, urlsToProcess.Count);
+
+        // Cross-check new links against watchlist and create notifications
+        try
+        {
+            await _notificationService.CreateNotificationsForRunAsync(job.RunId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create watchlist notifications for run {RunId}, continuing", job.RunId);
+        }
     }
 
     private async Task<IReadOnlyList<string>> ResolvePostUrlsAsync(
@@ -195,7 +209,7 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         try
         {
             // Extract a potential title from the post URL path
-            var title = ExtractTitleFromUrl(postUrl);
+            var title = UrlTitleExtractor.ExtractFrom(postUrl);
             if (!string.IsNullOrWhiteSpace(title))
             {
                 var match = await _matchingService.FindBestMatchAsync(title, cancellationToken: ct);
@@ -213,25 +227,5 @@ public class ScrapeOrchestrator : IScrapeOrchestrator
         }
     }
 
-    internal static string? ExtractTitleFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            var lastSegment = uri.Segments.LastOrDefault()?.Trim('/');
-            if (string.IsNullOrWhiteSpace(lastSegment))
-                return null;
-
-            // Replace common URL separators with spaces
-            return lastSegment
-                .Replace('-', ' ')
-                .Replace('_', ' ')
-                .Replace('.', ' ')
-                .Trim();
-        }
-        catch
-        {
-            return null;
-        }
-    }
 }
+

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using SeriesScraper.Application.Services;
+using SeriesScraper.Application.Utilities;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
@@ -18,6 +19,7 @@ public class ScrapeOrchestratorTests
     private readonly IScrapeRunRepository _runRepository;
     private readonly ILinkRepository _linkRepository;
     private readonly IImdbMatchingService _matchingService;
+    private readonly IWatchlistNotificationService _notificationService;
     private readonly ILogger<ScrapeOrchestrator> _logger;
     private readonly ScrapeOrchestrator _sut;
 
@@ -39,6 +41,7 @@ public class ScrapeOrchestratorTests
         _runRepository = Substitute.For<IScrapeRunRepository>();
         _linkRepository = Substitute.For<ILinkRepository>();
         _matchingService = Substitute.For<IImdbMatchingService>();
+        _notificationService = Substitute.For<IWatchlistNotificationService>();
         _logger = Substitute.For<ILogger<ScrapeOrchestrator>>();
 
         _forumRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
@@ -46,7 +49,8 @@ public class ScrapeOrchestratorTests
 
         _sut = new ScrapeOrchestrator(
             _postScraper, _searchService, _forumRepository,
-            _runRepository, _linkRepository, _matchingService, _logger);
+            _runRepository, _linkRepository, _matchingService,
+            _notificationService, _logger);
     }
 
     private ScrapeJob CreateJob(int runId = 1, int forumId = 1,
@@ -71,7 +75,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             null!, _searchService, _forumRepository,
-            _runRepository, _linkRepository, _matchingService, _logger);
+            _runRepository, _linkRepository, _matchingService,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("postScraper");
     }
 
@@ -80,7 +85,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, null!, _forumRepository,
-            _runRepository, _linkRepository, _matchingService, _logger);
+            _runRepository, _linkRepository, _matchingService,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("searchService");
     }
 
@@ -89,7 +95,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, _searchService, null!,
-            _runRepository, _linkRepository, _matchingService, _logger);
+            _runRepository, _linkRepository, _matchingService,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("forumRepository");
     }
 
@@ -98,7 +105,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, _searchService, _forumRepository,
-            null!, _linkRepository, _matchingService, _logger);
+            null!, _linkRepository, _matchingService,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("runRepository");
     }
 
@@ -107,7 +115,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, _searchService, _forumRepository,
-            _runRepository, null!, _matchingService, _logger);
+            _runRepository, null!, _matchingService,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("linkRepository");
     }
 
@@ -116,7 +125,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, _searchService, _forumRepository,
-            _runRepository, _linkRepository, null!, _logger);
+            _runRepository, _linkRepository, null!,
+            _notificationService, _logger);
         act.Should().Throw<ArgumentNullException>().WithParameterName("matchingService");
     }
 
@@ -125,7 +135,8 @@ public class ScrapeOrchestratorTests
     {
         var act = () => new ScrapeOrchestrator(
             _postScraper, _searchService, _forumRepository,
-            _runRepository, _linkRepository, _matchingService, null!);
+            _runRepository, _linkRepository, _matchingService,
+            _notificationService, null!);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -523,7 +534,7 @@ public class ScrapeOrchestratorTests
     [InlineData("not-a-uri", null)]
     public void ExtractTitleFromUrl_VariousInputs_ReturnsExpected(string url, string? expected)
     {
-        var result = ScrapeOrchestrator.ExtractTitleFromUrl(url);
+        var result = UrlTitleExtractor.ExtractFrom(url);
         result.Should().Be(expected);
     }
 
@@ -575,5 +586,54 @@ public class ScrapeOrchestratorTests
         await _runRepository.Received(1).UpdateRunItemStatusAsync(
             Arg.Any<int>(), ScrapeRunItemStatus.Failed, Arg.Any<CancellationToken>());
         await _runRepository.Received(3).IncrementProcessedItemsAsync(1, Arg.Any<CancellationToken>());
+    }
+
+    // --- Watchlist Notification Integration ---
+
+    [Fact]
+    public async Task ExecuteAsync_CallsNotificationServiceAfterProcessing()
+    {
+        var urls = new[] { "https://forum.example.com/thread/1" };
+        var job = CreateJob(postUrls: urls);
+
+        _postScraper.ScrapePostAsync(Arg.Any<Forum>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(ci => PostScrapeResult.Succeeded(ci.ArgAt<string>(1), Array.Empty<Link>()));
+
+        _runRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
+            .Returns(new ScrapeRun { RunId = 1, ForumId = 1, Status = ScrapeRunStatus.Running });
+
+        await _sut.ExecuteAsync(job);
+
+        await _notificationService.Received(1).CreateNotificationsForRunAsync(1, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NotificationServiceFailure_DoesNotThrow()
+    {
+        var urls = new[] { "https://forum.example.com/thread/1" };
+        var job = CreateJob(postUrls: urls);
+
+        _postScraper.ScrapePostAsync(Arg.Any<Forum>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(ci => PostScrapeResult.Succeeded(ci.ArgAt<string>(1), Array.Empty<Link>()));
+
+        _runRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
+            .Returns(new ScrapeRun { RunId = 1, ForumId = 1, Status = ScrapeRunStatus.Running });
+
+        _notificationService.CreateNotificationsForRunAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("DB error")));
+
+        // Should not throw — notification failure is non-fatal
+        var act = () => _sut.ExecuteAsync(job);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public void Constructor_NullNotificationService_Throws()
+    {
+        var act = () => new ScrapeOrchestrator(
+            _postScraper, _searchService, _forumRepository,
+            _runRepository, _linkRepository, _matchingService,
+            null!, _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("notificationService");
     }
 }

@@ -19,6 +19,7 @@ public class DashboardServiceTests
     private readonly IWatchlistService _watchlistService;
     private readonly IDatabaseStatsProvider _statsProvider;
     private readonly IImdbImportTrigger _importTrigger;
+    private readonly IWatchlistNotificationRepository _notificationRepository;
     private readonly ILogger<DashboardService> _logger;
     private readonly DashboardService _sut;
 
@@ -31,6 +32,7 @@ public class DashboardServiceTests
         _watchlistService = Substitute.For<IWatchlistService>();
         _statsProvider = Substitute.For<IDatabaseStatsProvider>();
         _importTrigger = Substitute.For<IImdbImportTrigger>();
+        _notificationRepository = Substitute.For<IWatchlistNotificationRepository>();
         _logger = Substitute.For<ILogger<DashboardService>>();
         _sut = new DashboardService(
             _forumRepository,
@@ -40,6 +42,7 @@ public class DashboardServiceTests
             _watchlistService,
             _statsProvider,
             _importTrigger,
+            _notificationRepository,
             _logger);
     }
 
@@ -301,6 +304,71 @@ public class DashboardServiceTests
 
         result.Watchlist.UnreadMatchCount.Should().Be(0);
         result.Watchlist.TotalWatchlistItems.Should().Be(0);
+    }
+
+    // ── UnreadNotificationCount ─────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_NullNotificationRepository_Throws()
+    {
+        var act = () => new DashboardService(
+            _forumRepository,
+            _scrapeRunRepository,
+            _runProgressService,
+            _settingsService,
+            _watchlistService,
+            _statsProvider,
+            _importTrigger,
+            null!,
+            _logger);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("notificationRepository");
+    }
+
+    [Fact]
+    public async Task GetDashboardAsync_ReturnsUnreadNotificationCountFromRepository()
+    {
+        SetupEmptyDefaults();
+        _notificationRepository.GetUnreadCountAsync(Arg.Any<CancellationToken>()).Returns(7);
+
+        var result = await _sut.GetDashboardAsync();
+
+        result.UnreadNotificationCount.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task GetDashboardAsync_ZeroUnread_ReturnsZero()
+    {
+        SetupEmptyDefaults();
+        _notificationRepository.GetUnreadCountAsync(Arg.Any<CancellationToken>()).Returns(0);
+
+        var result = await _sut.GetDashboardAsync();
+
+        result.UnreadNotificationCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetDashboardAsync_PassesCancellationTokenToNotificationRepository()
+    {
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+        SetupEmptyDefaults();
+        _notificationRepository.GetUnreadCountAsync(Arg.Any<CancellationToken>()).Returns(3);
+
+        await _sut.GetDashboardAsync(token);
+
+        await _notificationRepository.Received(1).GetUnreadCountAsync(token);
+    }
+
+    [Fact]
+    public async Task GetDashboardAsync_ReturnsDashboardDto()
+    {
+        SetupEmptyDefaults();
+        _notificationRepository.GetUnreadCountAsync(Arg.Any<CancellationToken>()).Returns(5);
+
+        var result = await _sut.GetDashboardAsync();
+
+        result.Should().NotBeNull();
+        result.Should().BeOfType<DashboardDto>();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

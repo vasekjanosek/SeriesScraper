@@ -20,6 +20,7 @@ public record DashboardDto
     public ImdbDatasetStatusDto ImdbDataset { get; init; } = new();
     public IReadOnlyList<ActiveRunDto> ActiveRuns { get; init; } = [];
     public WatchlistSummaryDto Watchlist { get; init; } = new();
+    public int UnreadNotificationCount { get; init; }
 }
 
 /// <summary>

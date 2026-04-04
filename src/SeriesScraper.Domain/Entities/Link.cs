@@ -42,6 +42,11 @@ public class Link
     
     public int RunId { get; set; }
     
+    /// <summary>
+    /// Quality descriptor extracted from the post (e.g., "1080p BluRay"). Null = not yet extracted.
+    /// </summary>
+    public string? Quality { get; set; }
+    
     // Navigation properties
     public LinkType LinkType { get; set; } = null!;
     public ScrapeRun Run { get; set; } = null!;

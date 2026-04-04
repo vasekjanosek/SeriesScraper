@@ -16,6 +16,7 @@ public class DashboardService : IDashboardService
     private readonly IWatchlistService _watchlistService;
     private readonly IDatabaseStatsProvider _statsProvider;
     private readonly IImdbImportTrigger _importTrigger;
+    private readonly IWatchlistNotificationRepository _notificationRepository;
     private readonly ILogger<DashboardService> _logger;
 
     public DashboardService(
@@ -26,6 +27,7 @@ public class DashboardService : IDashboardService
         IWatchlistService watchlistService,
         IDatabaseStatsProvider statsProvider,
         IImdbImportTrigger importTrigger,
+        IWatchlistNotificationRepository notificationRepository,
         ILogger<DashboardService> logger)
     {
         _forumRepository = forumRepository;
@@ -35,6 +37,7 @@ public class DashboardService : IDashboardService
         _watchlistService = watchlistService;
         _statsProvider = statsProvider;
         _importTrigger = importTrigger;
+        _notificationRepository = notificationRepository ?? throw new ArgumentNullException(nameof(notificationRepository));
         _logger = logger;
     }
 
@@ -47,12 +50,15 @@ public class DashboardService : IDashboardService
         var activeRuns = await GetActiveRunsAsync(ct);
         var watchlist = await GetWatchlistSummaryAsync(ct);
 
+        var unreadNotifications = await _notificationRepository.GetUnreadCountAsync(ct);
+
         return new DashboardDto
         {
             Forums = forums,
             ImdbDataset = imdb,
             ActiveRuns = activeRuns,
-            Watchlist = watchlist
+            Watchlist = watchlist,
+            UnreadNotificationCount = unreadNotifications
         };
     }
 
