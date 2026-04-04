@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using SeriesScraper.Domain.Entities;
 using SeriesScraper.Infrastructure.Data.Configurations;
@@ -11,7 +12,7 @@ namespace SeriesScraper.Infrastructure.Data;
 /// - Fluent API only (no data annotations)
 /// - Entity configurations in separate IEntityTypeConfiguration&lt;T&gt; classes
 /// </summary>
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IDataProtectionKeyContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -40,6 +41,9 @@ public class AppDbContext : DbContext
     public DbSet<ImdbTitleEpisodeStaging> ImdbTitleEpisodeStaging => Set<ImdbTitleEpisodeStaging>();
     public DbSet<ImdbTitleRatingsStaging> ImdbTitleRatingsStaging => Set<ImdbTitleRatingsStaging>();
     public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
+    
+    // DataProtection key storage (IDataProtectionKeyContext)
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
