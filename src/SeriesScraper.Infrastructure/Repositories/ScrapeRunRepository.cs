@@ -102,6 +102,17 @@ public class ScrapeRunRepository : IScrapeRunRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyDictionary<int, DateTime>> GetLastCompletedTimePerForumAsync(CancellationToken ct = default)
+    {
+        var result = await _context.ScrapeRuns.AsNoTracking()
+            .Where(r => r.ForumId != null && r.Status == ScrapeRunStatus.Complete && r.CompletedAt != null)
+            .GroupBy(r => r.ForumId!.Value)
+            .Select(g => new { ForumId = g.Key, LastCompleted = g.Max(r => r.CompletedAt!.Value) })
+            .ToDictionaryAsync(x => x.ForumId, x => x.LastCompleted, ct);
+
+        return result;
+    }
+
     public async Task<(IReadOnlyList<RunHistorySummaryDto> Items, int TotalCount)> GetRunHistoryPagedAsync(
         RunHistoryFilterDto filter, int page, int pageSize, string? sortBy, bool sortDescending, CancellationToken ct = default)
     {

@@ -18,6 +18,11 @@ public interface IScrapeRunRepository
     Task UpdateRunItemStatusAsync(int runItemId, ScrapeRunItemStatus status, CancellationToken ct = default);
     Task<IReadOnlyList<ScrapeRun>> GetActiveRunsAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Returns the most recent completed scrape run for each forum (keyed by ForumId).
+    /// </summary>
+    Task<IReadOnlyDictionary<int, DateTime>> GetLastCompletedTimePerForumAsync(CancellationToken ct = default);
+
     // History queries (#33)
     Task<(IReadOnlyList<RunHistorySummaryDto> Items, int TotalCount)> GetRunHistoryPagedAsync(
         RunHistoryFilterDto filter, int page, int pageSize, string? sortBy, bool sortDescending, CancellationToken ct = default);
