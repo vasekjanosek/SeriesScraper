@@ -20,6 +20,7 @@ namespace SeriesScraper.Infrastructure.Migrations
                 {
                     { "forum.default_encoding", "Default character encoding for forum pages", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "windows-1250" },
                     { "ForumRefreshIntervalHours", "Interval between forum structure refreshes (hours)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "24" },
+                    { "imdb.refresh_interval", "Interval between IMDB dataset refreshes (hours, 168 = 7 days)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "168" },
                     { "language.filter", "Language filter for results (all = no filter)", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "all" },
                     { "results.page_size", "Number of results displayed per page", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "25" },
                     { "scrape.request_delay", "Delay between scrape requests in milliseconds", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "2000" }
@@ -38,6 +39,11 @@ namespace SeriesScraper.Infrastructure.Migrations
                 table: "settings",
                 keyColumn: "key",
                 keyValue: "ForumRefreshIntervalHours");
+
+            migrationBuilder.DeleteData(
+                table: "settings",
+                keyColumn: "key",
+                keyValue: "imdb.refresh_interval");
 
             migrationBuilder.DeleteData(
                 table: "settings",

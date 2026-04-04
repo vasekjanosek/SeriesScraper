@@ -1338,6 +1338,13 @@ namespace SeriesScraper.Infrastructure.Migrations
                             Description = "Language filter for results (all = no filter)",
                             LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "all"
+                        },
+                        new
+                        {
+                            Key = "imdb.refresh_interval",
+                            Description = "Interval between IMDB dataset refreshes (hours, 168 = 7 days)",
+                            LastModifiedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "168"
                         });
                 });
 

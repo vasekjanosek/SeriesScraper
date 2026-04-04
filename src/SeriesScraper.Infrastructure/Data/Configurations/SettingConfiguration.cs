@@ -140,6 +140,13 @@ public class SettingConfiguration : IEntityTypeConfiguration<Setting>
                 Value = "all", 
                 Description = "Language filter for results (all = no filter)",
                 LastModifiedAt = seedDate
+            },
+            new Setting
+            {
+                Key = "imdb.refresh_interval",
+                Value = "168",
+                Description = "Interval between IMDB dataset refreshes (hours, 168 = 7 days)",
+                LastModifiedAt = seedDate
             }
         );
     }

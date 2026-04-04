@@ -15,7 +15,7 @@ public class ImdbImportBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ImdbImportBackgroundService> _logger;
-    private const string SettingKey = "ImdbImportIntervalHours";
+    private const string SettingKey = "imdb.refresh_interval";
     private const int DefaultIntervalHours = 168; // 7 days
     
     public ImdbImportBackgroundService(
