@@ -170,6 +170,7 @@ else
                                                                     <th>Type</th>
                                                                     <th>URL</th>
                                                                     <th>S/E</th>
+                                                                    <th>Language</th>
                                                                     <th>Current</th>
                                                                 </tr>
                                                             </thead>
@@ -187,6 +188,7 @@ else
                                                                                 <text>S@(link.ParsedSeason?.ToString("D2") ?? "--")E@(link.ParsedEpisode?.ToString("D2") ?? "--")</text>
                                                                             }
                                                                         </td>
+                                                                        <td>@(link.Language ?? "—")</td>
                                                                         <td>
                                                                             @if (link.IsCurrent)
                                                                             {

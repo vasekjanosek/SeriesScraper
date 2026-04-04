@@ -75,6 +75,7 @@ try
 
     // Singleton services
     builder.Services.AddSingleton<ILanguageDetector, LinguaLanguageDetector>();
+    builder.Services.AddSingleton<ILanguageTagParser, LanguageTagParser>();
     builder.Services.AddSingleton<IHtmlForumSectionParser, HtmlForumSectionParser>();
     builder.Services.AddSingleton<IResponseValidator, PhpBB2ResponseValidator>();
 
