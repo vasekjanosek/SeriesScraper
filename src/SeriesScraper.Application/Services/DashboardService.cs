@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SeriesScraper.Domain.Enums;
 using SeriesScraper.Domain.Interfaces;
 
 namespace SeriesScraper.Application.Services;
@@ -14,6 +15,7 @@ public class DashboardService : IDashboardService
     private readonly ISettingsService _settingsService;
     private readonly IWatchlistService _watchlistService;
     private readonly IDatabaseStatsProvider _statsProvider;
+    private readonly IImdbImportTrigger _importTrigger;
     private readonly ILogger<DashboardService> _logger;
 
     public DashboardService(
@@ -23,6 +25,7 @@ public class DashboardService : IDashboardService
         ISettingsService settingsService,
         IWatchlistService watchlistService,
         IDatabaseStatsProvider statsProvider,
+        IImdbImportTrigger importTrigger,
         ILogger<DashboardService> logger)
     {
         _forumRepository = forumRepository;
@@ -31,6 +34,7 @@ public class DashboardService : IDashboardService
         _settingsService = settingsService;
         _watchlistService = watchlistService;
         _statsProvider = statsProvider;
+        _importTrigger = importTrigger;
         _logger = logger;
     }
 
@@ -50,6 +54,13 @@ public class DashboardService : IDashboardService
             ActiveRuns = activeRuns,
             Watchlist = watchlist
         };
+    }
+
+    public Task TriggerImportAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("Manual IMDB import triggered from dashboard");
+        _importTrigger.TriggerImportNow();
+        return Task.CompletedTask;
     }
 
     private async Task<IReadOnlyList<ForumStatusDto>> GetForumStatusesAsync(CancellationToken ct)

@@ -1,5 +1,4 @@
 using SeriesScraper.Domain.Enums;
-using SeriesScraper.Domain.ValueObjects;
 
 namespace SeriesScraper.Domain.Interfaces;
 
@@ -9,6 +8,7 @@ namespace SeriesScraper.Domain.Interfaces;
 public interface IDashboardService
 {
     Task<DashboardDto> GetDashboardAsync(CancellationToken ct = default);
+    Task TriggerImportAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -33,17 +33,6 @@ public record ForumStatusDto
     public bool IsActive { get; init; }
     public ForumConnectivityStatus ConnectivityStatus { get; init; }
     public DateTime? LastSuccessfulScrape { get; init; }
-}
-
-/// <summary>
-/// Connectivity state for a forum.
-/// </summary>
-public enum ForumConnectivityStatus
-{
-    Unknown,
-    Online,
-    Unreachable,
-    AuthExpired
 }
 
 /// <summary>

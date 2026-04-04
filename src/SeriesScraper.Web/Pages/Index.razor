@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using SeriesScraper.Domain.Enums
 @using SeriesScraper.Domain.Interfaces
 @inject IDashboardService DashboardService
 @implements IDisposable
@@ -85,6 +86,17 @@
                     @(_dashboard.ImdbDataset.ImportStatus ?? "Idle")
                 </div>
             </div>
+            <div class="mt-3">
+                <button class="btn btn-outline-secondary btn-sm"
+                        @onclick="TriggerImportNowAsync"
+                        disabled="@_triggering">
+                    @if (_triggering)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    }
+                    Import Now
+                </button>
+            </div>
         </div>
     </div>
 
@@ -159,6 +171,7 @@
 @code {
     private DashboardDto? _dashboard;
     private bool _loading = true;
+    private bool _triggering;
     private string? _error;
     private Timer? _pollTimer;
 
@@ -190,8 +203,13 @@
     {
         try
         {
-            _dashboard = await DashboardService.GetDashboardAsync();
-            _error = null;
+            var data = await DashboardService.GetDashboardAsync();
+            await InvokeAsync(() =>
+            {
+                _dashboard = data;
+                _error = null;
+                StateHasChanged();
+            });
         }
         catch
         {
@@ -199,6 +217,19 @@
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TriggerImportNowAsync()
+    {
+        _triggering = true;
+        try
+        {
+            await DashboardService.TriggerImportAsync();
+        }
+        finally
+        {
+            _triggering = false;
+        }
     }
 
     private static string GetConnectivityBadgeClass(ForumConnectivityStatus status) => status switch

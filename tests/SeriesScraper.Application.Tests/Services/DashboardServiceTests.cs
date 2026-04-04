@@ -18,6 +18,7 @@ public class DashboardServiceTests
     private readonly ISettingsService _settingsService;
     private readonly IWatchlistService _watchlistService;
     private readonly IDatabaseStatsProvider _statsProvider;
+    private readonly IImdbImportTrigger _importTrigger;
     private readonly ILogger<DashboardService> _logger;
     private readonly DashboardService _sut;
 
@@ -29,6 +30,7 @@ public class DashboardServiceTests
         _settingsService = Substitute.For<ISettingsService>();
         _watchlistService = Substitute.For<IWatchlistService>();
         _statsProvider = Substitute.For<IDatabaseStatsProvider>();
+        _importTrigger = Substitute.For<IImdbImportTrigger>();
         _logger = Substitute.For<ILogger<DashboardService>>();
         _sut = new DashboardService(
             _forumRepository,
@@ -37,7 +39,18 @@ public class DashboardServiceTests
             _settingsService,
             _watchlistService,
             _statsProvider,
+            _importTrigger,
             _logger);
+    }
+
+    // ── TriggerImportAsync ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task TriggerImportAsync_CallsTriggerOnImportTrigger()
+    {
+        await _sut.TriggerImportAsync();
+
+        _importTrigger.Received(1).TriggerImportNow();
     }
 
     // ── GetDashboardAsync — full aggregation ───────────────────────────
