@@ -116,41 +116,28 @@ public class ImdbImportBackgroundServiceTests : IDisposable
             await seedContext.SaveChangesAsync();
         }
 
-        _mockImportService.RunImportAsync(Arg.Any<CancellationToken>())
-            .Returns(1);
-
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
+        var result = await service.GetRefreshIntervalAsync(CancellationToken.None);
 
-        await service.StartAsync(cts.Token);
-        await Task.Delay(300); // allow initial import + GetImportIntervalAsync to run
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        // If we got here without hanging or crashing, GetRefreshIntervalAsync worked.
-        // The setting value (daily) was read and used for the timer interval.
+        result.Should().NotBeNull();
+        result!.Value.TotalHours.Should().Be(24);
     }
 
     [Fact]
     public async Task GetRefreshIntervalAsync_ReturnsDefault_WhenNoSetting()
     {
         // No settings seeded - should use default (weekly = 168 hours)
-        _mockImportService.RunImportAsync(Arg.Any<CancellationToken>())
-            .Returns(1);
-
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
+        var result = await service.GetRefreshIntervalAsync(CancellationToken.None);
 
-        await service.StartAsync(cts.Token);
-        await Task.Delay(300);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        result.Should().NotBeNull();
+        result!.Value.TotalHours.Should().Be(168);
     }
 
     [Fact]
     public async Task GetRefreshIntervalAsync_ReturnsDefault_WhenInvalidSetting()
     {
-        // Seed an invalid setting value
+        // Seed an invalid setting value - should fall back to weekly default
         using (var seedContext = CreateContext())
         {
             seedContext.Settings.Add(new Setting
@@ -162,16 +149,11 @@ public class ImdbImportBackgroundServiceTests : IDisposable
             await seedContext.SaveChangesAsync();
         }
 
-        _mockImportService.RunImportAsync(Arg.Any<CancellationToken>())
-            .Returns(1);
-
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
+        var result = await service.GetRefreshIntervalAsync(CancellationToken.None);
 
-        await service.StartAsync(cts.Token);
-        await Task.Delay(300);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        result.Should().NotBeNull();
+        result!.Value.TotalHours.Should().Be(168);
     }
 
     [Fact]
