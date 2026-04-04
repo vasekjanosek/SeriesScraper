@@ -11,6 +11,7 @@ public interface IScrapeRunService
 {
     Task<ScrapeRun> CreateRunAsync(int forumId, CancellationToken ct = default);
     Task EnqueueRunAsync(int forumId, IReadOnlySet<string>? skipUrls = null, CancellationToken ct = default);
+    Task<ScrapeRun> ScrapeByUrlAsync(string threadUrl, int forumId, CancellationToken ct = default);
     Task ProcessJobAsync(ScrapeJob job, CancellationToken ct = default);
     Task CompleteRunAsync(int runId, CancellationToken ct = default);
     Task FailRunAsync(int runId, CancellationToken ct = default);
